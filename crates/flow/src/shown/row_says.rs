@@ -45,11 +45,13 @@ pub fn sentence(r: &Obj) -> Inked {
     let kept = |t: String| if r.b("chatKept") { [t, crate::flow::chat::KEPT_LINE.to_string()].into_iter().filter(|s| !s.is_empty()).collect::<Vec<_>>().join(" · ") } else { t };
     if failed_review(r) { let t = kept(review_tally(r)); return Inked::of("Review failed", Ink::Red).add(quiet(if t.is_empty() { t } else { format!(" · {t}") })); }
     if in_review(r) {
+        // Its pull request on Azure DevOps is open and its pipeline runs before your yes: how far, so you know when to try it.
+        let open = |i: Inked| { let p = r.at("prPipeline").t("words"); if p.is_empty() || !crate::azure::pr::is_azure(r.s("pr")) { i } else if i.is_empty() { quiet(p) } else { i.add(quiet(format!(" · {p}"))) } };
         let rv = current_review(r);
-        if let Some(rv) = rv.filter(|rv| gate::is_tagged(rv)) { let t = kept(gate::tally(rv)); return Inked::of(gate::word(rv), result_ink(rv)).add(quiet(if t.is_empty() { t } else { format!(" · {t}") })); }
-        let Some(rv) = rv.filter(|rv| gate::is_int(rv.at("score"))) else { return if r.at("review").b("stale") { quiet("The work changed since its review".into()) } else { Inked::new() } };
+        if let Some(rv) = rv.filter(|rv| gate::is_tagged(rv)) { let t = kept(gate::tally(rv)); return open(Inked::of(gate::word(rv), result_ink(rv)).add(quiet(if t.is_empty() { t } else { format!(" · {t}") }))); }
+        let Some(rv) = rv.filter(|rv| gate::is_int(rv.at("score"))) else { return open(if r.at("review").b("stale") { quiet("The work changed since its review".into()) } else { Inked::new() }) };
         let adv = match rv.at("recommend").as_bool() { Some(true) => " reviewer says yes", Some(false) => " reviewer says no", None => "" };
-        return Inked::of(format!("{}/5", rv.t("score")), result_ink(rv)).add(quiet(adv.into()));
+        return open(Inked::of(format!("{}/5", rv.t("score")), result_ink(rv)).add(quiet(adv.into())));
     }
     if r.s("stage") == "approval" && r.s("prState") == "failing" && !r.b("mergeFailed") && !r.b("syncBlocked") { return quiet("The pull request's checks fail".into()); }
     if r.s("stage") == "plan" && r.s("state") == "blocked" { let m = words(r.s("msg")); return plainly("Plan ready".into()).add(quiet(if m.is_empty() { m } else { format!(" · {m}") })); }

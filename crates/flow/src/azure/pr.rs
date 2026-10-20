@@ -1,4 +1,4 @@
-//! A pull request on Azure DevOps, through `az repos pr`: opened as a draft, found for a branch, read in the shape gh
+//! A pull request on Azure DevOps, through `az repos pr`: opened (ready for review, or a draft: `merge.draft`), found for a branch, read in the shape gh
 //! gives (`state` OPEN/MERGED/CLOSED, `headRefOid`, `baseRefName`, `mergeCommit`, `reviewDecision`, `author`,
 //! `comments`, `statusCheckRollup`), marked ready, completed by merge strategy, and commented on.
 use super::cli::{invoke, json_of, run, said};
@@ -43,12 +43,12 @@ pub fn shaped(a: &Azure, p: &Value) -> Value {
         "reviewers": p.arr("reviewers").iter().map(|r| json!({ "name": r.at("displayName"), "vote": r.at("vote"), "required": r.b("isRequired") })).collect::<Vec<_>>(),
     })
 }
-/// Opens the draft pull request of `branch` into `onto` (the repo's default branch when None). Its link is what it
-/// prints, as `gh pr create` does; a failure is az's own answer.
-pub fn create(a: &Azure, cwd: &Path, branch: &str, onto: Option<&str>, title: &str, body: &str) -> GhOut {
+/// Opens the pull request of `branch` into `onto` (the repo's default branch when None), as a draft when `draft`. Its
+/// link is what it prints, as `gh pr create` does; a failure is az's own answer.
+pub fn create(a: &Azure, cwd: &Path, branch: &str, onto: Option<&str>, title: &str, body: &str, draft: bool) -> GhOut {
     // Azure DevOps takes at most 4000 characters of description.
     let body: String = if body.chars().count() > 4000 { format!("{}…", body.chars().take(3990).collect::<String>()) } else { body.to_string() };
-    let mut args = vec!["repos", "pr", "create", "--project", &a.project, "--repository", &a.repo, "--source-branch", branch, "--title", title, "--description", &body, "--draft", "true"];
+    let mut args = vec!["repos", "pr", "create", "--project", &a.project, "--repository", &a.repo, "--source-branch", branch, "--title", title, "--description", &body, "--draft", if draft { "true" } else { "false" }];
     if let Some(b) = onto { args.extend(["--target-branch", b]); }
     let mut r = run(a, cwd, &args, 120000);
     if r.status == 0 {

@@ -71,6 +71,8 @@ fn poll_one(id: &str, pr: &str, j: &Value, via: &str) {
     let detail = if failed.is_empty() { String::new() } else if same(&prev) { prev.t("detail") } else { checks::failed_detail(&root, pr, &bad) };
     // A build of its checks held at an approval in Azure DevOps: the merge waits for you, not for a timeout.
     let held = if was.as_ref().map(|w| w.b("autoMerge") && w.b("checksWait")).unwrap_or(false) && failed.is_empty() && crate::azure::pr::is_azure(pr) { checks::held_builds(&root, &checks) } else { String::new() };
+    // Its own pipeline on Azure DevOps (a build validation, a deployment to staging), for the row: azure/pr_pipeline.rs.
+    let pipeline = match crate::azure::host(&root).filter(|_| crate::azure::pr::is_azure(pr) && j.s("state") == "OPEN") { Some(a) => crate::azure::pr_pipeline::look(&a, &root, &checks, was.as_ref().map(|w| w.at("prPipeline")).unwrap_or(&Value::Null)), None => Value::Null };
     let res = update_wait(id, 10000, |t| {
         if t.b("archivedAt") || t.s("pr") != pr || runner_alive(t) { return Ok(Change::Keep); } // archived or active since the request started: next poll
         if j.s("state") == "MERGED" {
@@ -100,7 +102,7 @@ fn poll_one(id: &str, pr: &str, j: &Value, via: &str) {
         }
         if j.s("state") != "OPEN" || (t.s("stage") == "working" && !t.b("autoMerge")) || needs_login(t) { return Ok(Change::Keep); }
         if !checks.is_empty() { t.put("prChecksSeen", true); }
-        if crate::azure::pr::is_azure(pr) { t.put("prRemote", crate::azure::shown::summary(j)); } // the panel's line of its votes and policies // this pull request has checks: a later empty list is not "none"
+        if crate::azure::pr::is_azure(pr) { t.put("prRemote", crate::azure::shown::summary(j)); t.put("prPipeline", pipeline.clone()); } // the panel's line of its votes and policies // this pull request has checks: a later empty list is not "none"
         // A remembered merge is for the commit that was reviewed. The pull request has moved on (someone pushed to it):
         // the approval is withdrawn, and nothing merges until that has been checked and reviewed here.
         let reviewed = if t.at("mergeIntent").b("verifiedHead") { t.at("mergeIntent").t("verifiedHead") } else { t.t("prHead") };

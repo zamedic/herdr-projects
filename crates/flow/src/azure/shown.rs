@@ -34,16 +34,19 @@ pub fn summary(v: &Value) -> String {
     if v.s("reviewDecision") == "REVIEW_REQUIRED" { parts.push("a review is still required".into()); }
     parts.join(" · ")
 }
-/// For `details`: its pull request on Azure DevOps (status, draft, reviewers, policies) and the main pipeline's runs.
+/// For `details`: its pull request on Azure DevOps (status, draft, reviewers, policies, what its own pipeline says)
+/// and the main pipeline's runs.
 /// None for a task with no pull request there.
 pub fn details(t: &Obj) -> Option<Value> {
     if !pr::is_azure(t.s("pr")) { return None; }
     let root = folder_of(t.s("id"));
     let a = host(&root)?;
-    let mut out = obj(json!({ "pr": t.at("pr"), "summary": t.at("prRemote") }));
+    let mut out = obj(json!({ "pr": t.at("pr"), "summary": t.at("prRemote"), "prPipeline": t.at("prPipeline").at("words") }));
     match pr::view(&a, &root, t.s("pr"), "statusCheckRollup") {
         Ok(v) => { out.put("status", v.at("state").clone()); out.put("draft", v.at("isDraft").clone()); out.put("reviewDecision", v.at("reviewDecision").clone()); out.put("reviewers", v.at("reviewers").clone());
-            out.put("policies", v.arr("statusCheckRollup").iter().map(|c| json!({ "name": crate::land::checks::name(c), "result": result(c), "url": c.at("detailsUrl") })).collect::<Vec<_>>()); out.put("summary", summary(&v)); }
+            out.put("policies", v.arr("statusCheckRollup").iter().map(|c| json!({ "name": crate::land::checks::name(c), "result": result(c), "url": c.at("detailsUrl") })).collect::<Vec<_>>()); out.put("summary", summary(&v));
+            // Open, its own pipeline as it is now (the build validation, a deployment to staging): what the row says.
+            if v.s("state") == "OPEN" { let p = super::pr_pipeline::look(&a, &root, v.arr("statusCheckRollup"), t.at("prPipeline")); out.put("prPipeline", p.at("words").clone()); } }
         Err(e) => out.put("unread", e),
     }
     let w = if t.b("pipelineWait") { t.at("pipelineWait") } else { t.at("pipelineFailed") };

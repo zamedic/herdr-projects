@@ -1,5 +1,5 @@
 //! The merge through a pull request on Azure DevOps, as merge.rs does it through GitHub's: at the reviewed commit only,
-//! marked ready, its policies passed (checks.rs, `merge.checks`), then completed by `merge.method` (squash, merge with
+//! made ready if it is a draft (`merge.draft`), its policies passed (checks.rs, `merge.checks`), then completed by `merge.method` (squash, merge with
 //! no fast-forward, rebase) with its source branch deleted. Completed, it waits for the base branch's pipeline when
 //! `merge.pipeline` asks for it (main_pipeline.rs), else it is done.
 use super::merge::{fail, landed, Fail};
@@ -32,7 +32,9 @@ pub fn through_pr(id: &str, g: &mut Guard, t: &Task, root: &Path, how: &str, a: 
         }
     }
     if called_off(g) { return Ok(()); }
-    pr::ready(a, root, &pr);
+    // Opened ready for review (`merge.draft`), its pipeline has run since: only a draft is made ready, and az not asked
+    // to change what is fine. Not read: made ready, as before.
+    if pr::view(a, root, &pr, "isDraft").map(|v| v.b("isDraft")).unwrap_or(true) { pr::ready(a, root, &pr); }
     // Its policies (`merge.checks`): still running it waits, failed it goes back (checks.rs).
     if !super::checks::before_merge(id, g, t, root)? { return Ok(()); }
     let message = format!("{}\n\nTask: {}", if t.b("title") { t.t("title") } else { id.to_string() }, task_ref(id, &repo_keys()));
