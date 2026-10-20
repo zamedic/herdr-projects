@@ -64,6 +64,28 @@ fn merge_draft_false_on_github_opens_it_ready_for_review() {
     let id = to_approval(&w, "Ready on GitHub");
     assert!(gh_log(&w).contains("pr create --head work/1-ready-on-github --title Ready on GitHub") && !gh_log(&w).contains("--draft"), "{}", gh_log(&w));
     assert_eq!(task(&id).s("pr"), "https://github.com/o/r/pull/7");
+    // GitHub says it is ready already: the yes does not make it ready again
+    let t = task(&id);
+    w.gh_says(json!({ "view": { "state": "OPEN", "isDraft": false, "headRefOid": t.at("prHead"), "statusCheckRollup": [], "comments": [], "reviews": [], "author": { "login": "me" } } }));
+    finish_line::approve(&id, None, false).unwrap();
+    settle(&id);
+    assert!(gh_log(&w).contains("pr merge") && !gh_log(&w).contains("pr ready"), "{}", gh_log(&w));
+}
+
+#[test]
+fn an_optional_build_validation_still_running_is_running_and_says_deployed_once_through() {
+    let w = az_world(json!({}));
+    let id = to_approval(&w, "Optional deploy");
+    let head = git(Path::new(task(&id).s("worktree")), &["rev-parse", "HEAD"]);
+    let optional = |status: &str| { let mut p = policy("Build", "Deploy to staging", status, Some(7)); p["configuration"]["isBlocking"] = json!(false); p };
+    w.az_says(json!({ "head": head, "policies": [optional("running")], "timeline": { "7": stages(&[("Build", "completed"), ("Deploy staging", "inProgress")]) } }));
+    poll_prs();
+    assert_eq!(task(&id).at("prPipeline").s("words"), "Pull request open · deploying staging", "{}", task(&id).at("prPipeline"));
+    let mut done = stages(&[("Build", "completed"), ("Deploy staging", "completed")]);
+    for r in done["records"].as_array_mut().unwrap() { r["result"] = json!("succeeded"); }
+    w.az_says(json!({ "head": head, "policies": [optional("approved")], "timeline": { "7": done } }));
+    poll_prs();
+    assert_eq!(task(&id).at("prPipeline").s("words"), "Pull request open · deployed to staging", "{}", task(&id).at("prPipeline"));
 }
 
 #[test]
@@ -77,6 +99,11 @@ fn the_rows_words_say_how_far_its_pipeline_is() {
     assert_eq!(pr_pipeline::words("passed", &[st("Build", true, false)]), "Pull request open · pipeline passed");
     assert_eq!(pr_pipeline::words("passed", &[st("Build", true, false), Stage { name: "Deploy staging".into(), done: true, deployed: true, ..Default::default() }]), "Pull request open · deployed to staging");
     assert_eq!(pr_pipeline::words("failed", &[]), "Pull request open · pipeline failed");
+    // production still waits (held at an approval): staging is there to try already
+    let staged = Stage { name: "Deploy_Staging".into(), done: true, deployed: true, ..Default::default() };
+    assert_eq!(pr_pipeline::words("running", &[st("Build", true, false), staged, st("Deploy_Prod", false, true)]), "Pull request open · deploying Prod");
+    let staged = Stage { name: "Deploy_Staging".into(), done: true, deployed: true, ..Default::default() };
+    assert_eq!(pr_pipeline::words("running", &[st("Build", true, false), staged, st("Production", false, false)]), "Pull request open · deployed to Staging · pipeline running");
     // a stage named for a deployment that was skipped deployed nothing
     let tl = json!({ "records": [{ "id": "s", "type": "Stage", "name": "Deploy_Staging", "state": "completed", "result": "skipped", "order": 1 }] });
     assert!(!sw::azure::runs::stages_of(&sw::azure::logs::records_of(&tl))[0].deployed);

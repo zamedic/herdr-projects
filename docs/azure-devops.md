@@ -35,7 +35,9 @@ login is said: `Could not open the pull request`, with what az said and what to 
 - **Its pipeline, while it waits for your yes**: the row says that the pull request is open and how far its own
   pipeline is, from its build validations and their stages: `Pull request open · pipeline running · 1 of 3 stages`,
   `… · deploying Staging`, `… · deployed to Staging` (a stage named `Deploy…`, or one whose `Deploy…` job succeeded),
-  `… · pipeline passed`, `… · pipeline failed`. `details` says the same (`azure.prPipeline`), with `azure.draft`.
+  `… · deployed to Staging · pipeline running` (a later stage still waits, such as production at an approval),
+  `… · pipeline passed`, `… · pipeline failed`. An optional build validation (not blocking) counts here until it is
+  through, though it never holds the merge up. `details` says the same (`azure.prPipeline`), with `azure.draft`.
 - **Shown** on the row (`PR#42`, green when its policies pass, red when one fails), by its link
   (`https://dev.azure.com/<org>/<project>/_git/<repo>/pullrequest/42`). The task panel adds a line of its reviewers'
   votes and its policies (`Azure  Reviewers: Ann approved · Policies: CI build running`); `details` has the pull
