@@ -186,7 +186,7 @@ pub fn pipeline(id: &str, g: &mut Guard, text: &str, keep_intent: bool, reason: 
             let ph = git_out(tp, &["rev-parse", &format!("refs/remotes/origin/{}", t.s("branch"))])?;
             g.set(|t| t.put("prHead", ph.clone()))?;
             // Its pull request merged and the main pipeline failed after it (land/main_pipeline.rs): the fix is a new one.
-            if t.b("pipelineFailed") { t = g.set(|t| { for k in ["pr", "prSeen", "prState", "prFailure", "prRemote", "pipelineFailed"] { t.put(k, Value::Null); } t.put("prMerged", false); })?; }
+            if t.b("pipelineFailed") { t = g.set(|t| { for k in ["pr", "prSeen", "prState", "prFailure", "prRemote", "prPipeline", "pipelineFailed"] { t.put(k, Value::Null); } t.put("prMerged", false); })?; }
             let azure = crate::azure::host(&root);
             let mut url = t.t("pr");
             if url.is_empty() {
@@ -198,9 +198,12 @@ pub fn pipeline(id: &str, g: &mut Guard, text: &str, keep_intent: bool, reason: 
                 let mut own = if named { already::open_pr(t.s("branch"), tp) } else { None };
                 if own.is_none() {
                     let body = format!("{}\n\nTask: {}", if text.is_empty() { t.t("title") } else { text.to_string() }, task_ref(id, &repo_keys()));
-                    let mut args = vec!["pr", "create", "--draft", "--head", t.s("branch"), "--title", if t.b("title") { t.s("title") } else { id }, "--body", &body];
+                    // A draft until your yes on GitHub; ready at once on Azure DevOps, so its pipeline runs (`merge.draft`).
+                    let draft = crate::azure::draft(&ch.t("merge.draft"), azure.is_some());
+                    let mut args = vec!["pr", "create", "--head", t.s("branch"), "--title", if t.b("title") { t.s("title") } else { id }, "--body", &body];
+                    if draft { args.insert(2, "--draft"); }
                     if let Some(b) = &onto { args.extend(["--base", b.as_str()]); }
-                    let r = match &azure { Some(a) => crate::azure::pr::create(a, tp, t.s("branch"), onto.as_deref(), if t.b("title") { t.s("title") } else { id }, &body), None => flow::git::gh(&args, tp, 120000) };
+                    let r = match &azure { Some(a) => crate::azure::pr::create(a, tp, t.s("branch"), onto.as_deref(), if t.b("title") { t.s("title") } else { id }, &body, draft), None => flow::git::gh(&args, tp, 120000) };
                     url = r.stdout.split_whitespace().find(|w| w.starts_with("http://") || w.starts_with("https://")).unwrap_or("").to_string();
                     // The agent opened one itself for this branch: the board goes on with that one.
                     if url.is_empty() { own = already::open_pr(t.s("branch"), tp); }

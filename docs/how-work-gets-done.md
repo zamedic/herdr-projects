@@ -99,7 +99,14 @@ When the agent's turn ends, the board:
      fails the commit, naming the lock file.
    - A new round starts clean: the failure of the round before (a failed commit, a reviewer out of credits) is cleared
      as soon as the check starts, so the row and the details never show it while the work is checked and reviewed.
-2. **Pushes the branch and opens a draft pull request**, when there is an `origin` remote and `gh`.
+2. **Pushes the branch and opens a pull request**, when there is an `origin` remote and `gh` (or `az` for a repo at
+   [Azure DevOps](azure-devops.md)).
+   - On GitHub it is a draft, made ready on your yes. On Azure DevOps it is ready for review at once, with the same
+     title and description, so its pipeline (build validation, a deployment to staging) runs before your yes, and the
+     row says how far it is (`Pull request open · deploying Staging`, `… · deployed to Staging`): try the work on
+     staging, then approve. Your yes then only completes it, once its checks and required policies pass
+     (`merge.checks`). `merge.draft` sets it for either host, per task, per repo or in general: `auto` (the default)
+     is the host's way, `true` always a draft, `false` never.
    - A pull request the agent already opened for the task's branch is taken on instead, and goes through the review and
      the merge as usual.
    - A branch that brings main nothing gets no pull request: no change was needed, or the work is on main already (the

@@ -165,7 +165,8 @@ pub fn land_core(id: &str, g: &mut Guard) -> Res<()> {
             }
         }
         if called_off(g) { return Ok(()); }
-        gh(&["pr", "ready", &pr], &root, 60000);
+        // Only a draft is made ready (`merge.draft`): one GitHub says is ready already is left as it is.
+        if serde_json::from_str::<Value>(&gh(&["pr", "view", &pr, "--json", "isDraft"], &root, 60000).stdout).ok().and_then(|v| v.get("isDraft").and_then(|d| d.as_bool())) != Some(false) { gh(&["pr", "ready", &pr], &root, 60000); }
         // GitHub's own checks on it (`merge.checks`): still running it waits, failed it goes back (checks.rs).
         if !super::checks::before_merge(id, g, &t, &root)? { return Ok(()); }
         let mut a = vec!["pr", "merge", pr.as_str()];

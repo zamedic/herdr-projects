@@ -34,6 +34,7 @@ const FRESH: &[&str] = &[
     "prFeedbackSeen",
     "prFailure",
     "prRemote",
+    "prPipeline",
     "pipelineWait",
     "pipelineFailed",
     "completeQueued",

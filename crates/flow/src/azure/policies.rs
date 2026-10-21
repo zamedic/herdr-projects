@@ -52,7 +52,8 @@ pub fn rollup(a: &Azure, evaluations: &[Value]) -> (Vec<Value>, bool) {
                 let build = p.at("context").t("buildId");
                 let url = if !build.is_empty() { a.build_url(&build) } else { p.at("context").t("targetUrl") };
                 let mut c = json!({ "__typename": "CheckRun", "name": name(p), "status": status, "conclusion": conclusion, "detailsUrl": url, "workflowName": "", "azure": true });
-                if k == Kind::Build && !build.is_empty() { c["buildId"] = json!(build); }
+                // Its own status too: one not blocking is NEUTRAL to the merge while it still runs (pr_pipeline.rs reads it).
+                if k == Kind::Build && !build.is_empty() { c["buildId"] = json!(build); c["policyStatus"] = json!(st); }
                 checks.push(c);
             }
         }

@@ -1,4 +1,4 @@
-//! A repo at Azure DevOps, from the finish line to done: its draft pull request is opened with az, it merges only once
+//! A repo at Azure DevOps, from the finish line to done: its pull request is opened ready with az, it merges only once
 //! its policies pass and is completed by `merge.method`, then the task waits for the base branch's pipeline for the
 //! merge commit and is done once that passed. A pull request the human completed in Azure DevOps is taken for merged,
 //! and work the agent merged itself is `Already merged in !N`, done once the main pipeline passed. No login to Azure DevOps is said as one.
@@ -23,7 +23,7 @@ pub fn merge_commit() -> String { "m".repeat(40) }
 pub fn stages(list: &[(&str, &str)]) -> Value { json!({ "records": list.iter().enumerate().map(|(i, (n, s))| json!({ "id": format!("s{i}"), "type": "Stage", "name": n, "state": s, "order": i })).collect::<Vec<_>>() }) }
 
 #[test]
-fn a_task_at_azure_devops_opens_its_draft_pull_request_merges_once_its_policies_pass_and_is_done_once_the_main_pipeline_passed() {
+fn a_task_at_azure_devops_opens_its_pull_request_ready_merges_once_its_policies_pass_and_is_done_once_the_main_pipeline_passed() {
     let w = az_world(json!({}));
     let id = to_approval(&w, "Shop change");
     let t = task(&id);
@@ -31,7 +31,7 @@ fn a_task_at_azure_devops_opens_its_draft_pull_request_merges_once_its_policies_
     assert!(t.s("msg").contains(&format!("{WEB}/pullrequest/42")), "{}", t.s("msg"));
     let log = az_log(&w);
     assert!(log.contains(&format!("repos pr create --project Big Project --repository shop --source-branch {} --title Shop change --description", t.s("branch"))), "{log}");
-    assert!(log.contains("--draft true") && gh_log(&w).is_empty(), "never gh: {log}");
+    assert!(log.contains("--draft false") && gh_log(&w).is_empty(), "ready, never gh: {log}");
     assert_eq!(git(&w.root, &["ls-remote", "origin", &format!("refs/heads/{}", t.s("branch"))]).split('\t').next().unwrap_or(""), git(Path::new(t.s("worktree")), &["rev-parse", "HEAD"]), "pushed");
     assert_eq!(sw::shown::words::pr_number(&t), "PR#42");
     // approved while its build validation runs: it waits for it, said as Azure DevOps' checks
@@ -41,7 +41,7 @@ fn a_task_at_azure_devops_opens_its_draft_pull_request_merges_once_its_policies_
     let t = settle(&id);
     assert_eq!(t.s("stage"), "merging", "{}", t.at("failure")); assert!(t.b("autoMerge"));
     assert_eq!(t.s("msg"), "Waiting for Azure DevOps checks · 0 of 1 passed");
-    assert!(az_log(&w).contains("repos pr update --id 42 --draft false"), "marked ready: {}", az_log(&w));
+    assert!(!az_log(&w).contains("repos pr update"), "ready already, not made ready again: {}", az_log(&w));
     assert!(w.az.sent.borrow().iter().all(|s| s.s("resource") != "pullRequests"), "not completed while it runs");
     // watched meanwhile: the panel says its votes and policies, `details` the pull request as Azure DevOps has it now
     w.az_says(json!({ "head": reviewed, "reviewers": [{ "displayName": "Ann", "vote": 10 }], "policies": [policy("Build", "CI build", "running", Some(7)), policy("Minimum number of reviewers", "", "approved", None)] }));

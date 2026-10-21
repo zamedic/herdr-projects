@@ -1,7 +1,7 @@
 # Azure DevOps
 
 A repo whose origin is at Azure DevOps Repos goes through the finish line as one on GitHub does: its branch is pushed,
-its draft pull request opened, merged on your yes (or by itself) once its policies pass, and watched meanwhile. Then it
+its pull request opened (ready for review, so its pipeline runs at once), merged on your yes (or by itself) once its policies pass, and watched meanwhile. Then it
 waits for the base branch's pipeline: the task is done only once that run passed for the merge commit.
 
 The board knows the host from the origin's URL, in any form Azure DevOps gives a clone:
@@ -26,15 +26,25 @@ login is said: `Could not open the pull request`, with what az said and what to 
 
 ## The pull request
 
-- **Opened** at the finish line: the branch pushed, a draft pull request into the task's base branch (`workspace.from`),
-  with the same title and description as on GitHub (`az repos pr create --draft true`). One the agent opened itself for
-  the branch is taken on instead.
+- **Opened** at the finish line: the branch pushed, a pull request into the task's base branch (`workspace.from`),
+  with the same title and description as on GitHub, **ready for review, not a draft** (`az repos pr create --draft
+  false`). Its pipeline (build validation, a deployment to staging) runs from the moment it exists, so the work can be
+  tried on staging before your yes. `merge.draft` changes it: `true` opens a draft here too, made ready on your yes
+  (`auto`, the default, is ready on Azure DevOps and a draft on GitHub). One the agent opened itself for the branch is
+  taken on instead.
+- **Its pipeline, while it waits for your yes**: the row says that the pull request is open and how far its own
+  pipeline is, from its build validations and their stages: `Pull request open · pipeline running · 1 of 3 stages`,
+  `… · deploying Staging`, `… · deployed to Staging` (a stage named `Deploy…`, or one whose `Deploy…` job succeeded),
+  `… · deployed to Staging · pipeline running` (a later stage still waits, such as production at an approval),
+  `… · pipeline passed`, `… · pipeline failed`. An optional build validation (not blocking) counts here until it is
+  through, though it never holds the merge up. `details` says the same (`azure.prPipeline`), with `azure.draft`.
 - **Shown** on the row (`PR#42`, green when its policies pass, red when one fails), by its link
   (`https://dev.azure.com/<org>/<project>/_git/<repo>/pullrequest/42`). The task panel adds a line of its reviewers'
   votes and its policies (`Azure  Reviewers: Ann approved · Policies: CI build running`); `details` has the pull
   request as Azure DevOps says it now (`azure`: its status, reviewers and policies) and, after the merge, the main
   pipeline's runs.
-- **Merged** on approve: only at the commit that was reviewed, marked ready, its policies passed, then completed by
+- **Merged** on approve: only at the commit that was reviewed, made ready if it is a draft (a pull request that is
+  ready already is left as it is), its policies passed, then completed by
   `merge.method` (`squash`; `merge` is a merge with no fast-forward; `rebase`), its source branch deleted. The strategy
   is named on the completion, whatever one the pull request already had (an auto-complete set in Azure DevOps). It is
   Azure DevOps' REST call through `az rest` (`az repos pr update` can say neither the strategy nor the commit), so it

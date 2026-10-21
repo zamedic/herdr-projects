@@ -51,14 +51,15 @@ pub fn not_started(runs: &[Run], setting: &str) -> Vec<String> {
 pub fn passed(r: &Run) -> bool { r.status == "completed" && (r.result == "succeeded" || r.result == "partiallysucceeded") }
 pub fn failed(r: &Run) -> bool { r.status == "completed" && !passed(r) }
 /// A stage of a run: its name, whether it is through, whether it is under way, and whether a deployment job of it
-/// runs (a job named `Deploy…`, as a stage `Staging` with its job `Deploy` has).
+/// runs (a job named `Deploy…`, as a stage `Staging` with its job `Deploy` has), or has deployed (that job succeeded).
 #[derive(Clone, Debug, Default)]
-pub struct Stage { pub name: String, pub done: bool, pub running: bool, pub deploying: bool }
+pub struct Stage { pub name: String, pub done: bool, pub running: bool, pub deploying: bool, pub deployed: bool }
 pub fn stages_of(recs: &[super::logs::Record]) -> Vec<Stage> {
     // A job's stage: up its parents (job, phase, stage).
     let stage_of = |r: &super::logs::Record| { let mut at = r.parent.clone(); for _ in 0..4 { match recs.iter().find(|x| x.id == at) { Some(x) if x.kind == "Stage" => return x.id.clone(), Some(x) => at = x.parent.clone(), None => break } } String::new() };
     let deploying: Vec<String> = recs.iter().filter(|r| r.kind == "Job" && r.state == "inProgress" && r.name.to_lowercase().starts_with("deploy")).map(stage_of).collect();
-    recs.iter().filter(|r| r.kind == "Stage").map(|r| Stage { done: r.state == "completed", running: r.state == "inProgress", deploying: deploying.contains(&r.id), name: r.name.clone() }).collect()
+    let deployed: Vec<String> = recs.iter().filter(|r| r.kind == "Job" && r.state == "completed" && r.result == "succeeded" && r.name.to_lowercase().starts_with("deploy")).map(stage_of).collect();
+    recs.iter().filter(|r| r.kind == "Stage").map(|r| Stage { done: r.state == "completed", running: r.state == "inProgress", deploying: deploying.contains(&r.id), deployed: deployed.contains(&r.id) || (r.result == "succeeded" && deploy_target(&r.name).is_some()), name: r.name.clone() }).collect()
 }
 pub fn stages(a: &Azure, root: &Path, run: &str) -> Vec<Stage> { stages_of(&timeline(a, root, run)) }
 /// The stages of a run held at an approval (a check of its environment, `Checkpoint.Approval` under way): they wait
@@ -81,13 +82,19 @@ pub fn awaiting_of(read: &[(String, Vec<super::logs::Record>)]) -> String {
     let parts: Vec<String> = read.iter().filter_map(|(name, recs)| { let at = approvals_of(recs); (!at.is_empty()).then(|| format!("{name}, at {}", at.join(", "))) }).collect();
     if parts.is_empty() { String::new() } else { format!("Waiting for your approval in Azure DevOps: {}", parts.join("; ")) }
 }
+/// Where a stage named for a deployment deploys to: `Deploy_Staging` is `Staging`, `Deployment` says nowhere (empty).
+/// None: the stage is not named so.
+pub fn deploy_target(name: &str) -> Option<String> {
+    let lower = name.to_lowercase();
+    if !lower.starts_with("deploy") { return None; }
+    let skip = if lower.starts_with("deployment") { 10 } else { 6 };
+    Some(name[skip..].trim_start_matches(|c: char| c == '_' || c == '-' || c == ' ' || c == ':').trim().to_string())
+}
 /// How far the runs are, in the row's words: the stage that deploys (`Deploying staging`), else how many stages are
 /// through (`Main pipeline running · 2 of 3 stages`), else that it runs.
 pub fn progress(stages: &[Stage], runs: usize) -> String {
     let word = if runs > 1 { "Main pipelines" } else { "Main pipeline" };
-    if let Some(s) = stages.iter().find(|s| s.running && s.name.to_lowercase().starts_with("deploy")) {
-        let skip = if s.name.to_lowercase().starts_with("deployment") { 10 } else { 6 };
-        let to = s.name[skip..].trim_start_matches(|c: char| c == '_' || c == '-' || c == ' ' || c == ':').trim();
+    if let Some(to) = stages.iter().filter(|s| s.running).find_map(|s| deploy_target(&s.name)) {
         return if to.is_empty() { "Deploying".into() } else { format!("Deploying {to}") };
     }
     if let Some(s) = stages.iter().find(|s| s.running && s.deploying) { return format!("Deploying {}", s.name.replace('_', " ")); }
