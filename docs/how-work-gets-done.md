@@ -299,6 +299,8 @@ compares:
   stage it was in, with the same review, and no check, review or merge starts. Its row says so after the review's result
   (`Pass · 1 minor · Chatting · no changes, review kept`), and the task panel lists it under that review
   (`a chat changed no code, review 2 still stands`, with when and how often).
+  The same for a turn that ended with no summary at all (the agent compacted its conversation, or answered on its
+  screen alone): with nothing changed, the work still waits for your yes, never "stopped without a summary".
 - **A review was under way** when you wrote: it goes on (the box says `Send message to Agent: the review goes on unless the code changes`). What the reviewer changed is not put back while the agent may be at work in the same folder. If
   the agent's turn changed nothing, the review's result stands as it ends. If it changed the code, the review is stopped
   (or, if already through, its result no longer covers the work), and the change waits as below.

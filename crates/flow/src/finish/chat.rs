@@ -19,19 +19,25 @@ use crate::store::tasks::{update_wait, Change, Task};
 pub fn after_turn(g: &mut Guard) -> Res<bool> {
     let t = g.check()?;
     if !t.at("chat").is_object() { return Ok(false); }
-    let head = t.at("chat").t("head");
-    let same = chat::same_code(&t, &head);
-    if same && t.at("chat").at("from").is_object() {
-        let back = g.set(|t| {
-            chat::put_back(t);
-            if current_review(t).is_some() { log_kept(t, &json!({ "chat": true, "head": head })); } // the task's history says the review still stands
-        })?;
-        flow::sidebar::tell_sidebar(&back);
-        return Ok(true);
-    }
-    if same { return Ok(false); } // nothing to put back (its review is gone): the finish line as always
+    if kept(g)? { return Ok(true); }
+    if chat::same_code(&t, t.at("chat").s("head")) { return Ok(false); } // nothing to put back (its review is gone): the finish line as always
     let h = g.set(|t| { t.obj_mut("chat").put("held", now()); t.put("msg", chat::HELD); })?;
     flow::sidebar::tell_sidebar(&h);
+    Ok(true)
+}
+/// A turn of a chat with work at rest (approval, done) that changed no code: the task goes back to where it stood, with
+/// its review. Also for a turn that ended with no summary (a compaction, a question answered on the screen alone): it
+/// changed nothing, so the work still waits for your yes and is never "stopped without a summary". False: it changed
+/// the code, or there is nothing to put back.
+pub fn kept(g: &mut Guard) -> Res<bool> {
+    let t = g.check()?;
+    let head = t.at("chat").t("head");
+    if !t.at("chat").at("from").is_object() || !chat::same_code(&t, &head) { return Ok(false); }
+    let back = g.set(|t| {
+        chat::put_back(t);
+        if current_review(t).is_some() { log_kept(t, &json!({ "chat": true, "head": head })); } // the task's history says the review still stands
+    })?;
+    flow::sidebar::tell_sidebar(&back);
     Ok(true)
 }
 /// How long the board waits for you after a chat that changed the code.

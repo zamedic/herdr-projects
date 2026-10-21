@@ -61,6 +61,19 @@ login is said: `Could not open the pull request`, with what az said and what to 
 
 The pull requests are looked at on the same cadence as GitHub's, every two minutes.
 
+## Where it stands while it waits for your yes
+
+A task whose work is finished and whose review passed is **ready to approve** (the green `◆`, counted as `N ready` in
+the list's header), exactly as on GitHub, while its pull request's pipeline runs, passes or deploys to staging: the row
+says the review's result and the pipeline (`Pass · 1 minor · Pull request open · pipeline running`), `herdr-projects
+list` says `ready to approve`. A policy of people still to be met (`a review is still required`) does not change that:
+your yes then waits for it in Azure DevOps.
+
+It **needs you** only for a real hold: a failed review, a failed merge or sync, a policy that failed, a reviewer who
+rejected it or waits for the author, or a build or pipeline held at an approval that only Azure DevOps can give (the row
+says which, and yes says to approve it there). A turn of its agent that changes nothing (you typed in its pane, it
+compacted its conversation) leaves it where it was: never "stopped without a summary" with the agent's screen line.
+
 ## Its policies are its checks
 
 `merge.checks` is `auto` by default: `github` on GitHub, `azure` on Azure DevOps. With `azure`:
