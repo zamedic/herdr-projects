@@ -106,7 +106,8 @@ pub fn look(id: &str) {
             say(id, &format!("Merged: {}. Waiting for the main pipeline to start", t.s("pr")));
         }
         runs::Look::NotStarted(names) => { if overdue(&t) { return late(&format!("{} not started", names.join(", "))); } say(id, &format!("Merged. Waiting for the pipeline {} to start", names.join(", "))); }
-        runs::Look::Running(words) => { if overdue(&t) { return late(&words); } say(id, &words); }
+        // A run under way is not cut off: a long build, or one that sat at an approval, is still running.
+        runs::Look::Running(words) => say(id, &words),
         // Waiting for a person is not the pipeline taking too long: no timeout while it is so.
         runs::Look::Approval(words) => say_held(id, &words, true),
     }

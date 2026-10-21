@@ -71,7 +71,15 @@ your yes then waits for it in Azure DevOps.
 
 It **needs you** only for a real hold: a failed review, a failed merge or sync, a policy that failed, a reviewer who
 rejected it or waits for the author, or a build or pipeline held at an approval that only Azure DevOps can give (the row
-says which, and yes says to approve it there). A turn of its agent that changes nothing (you typed in its pane, it
+says which, and yes says to approve it there).
+
+Its pull request's own pipeline held at an approval before a stage (the run's timeline has a `Checkpoint.Approval`
+under way) needs you too, though nothing failed: the row says `Pass · Pull request open · waits for your approval of
+stage Staging in Azure DevOps`, the panel's `Approve` line names the run with its URL, the approval question stays and
+your yes is still yours to give (it then waits for that approval there, and for the policies). A failure of an earlier
+run of its checks is cleared then, and nothing is sent to the agent. A skipped stage is said as such (`pipeline running
+· 3 of 5 stages · Lint skipped`); a stage that failed is still a failed policy, with its job and the end of its log. An
+earlier wait for its builds that ran out (`Azure DevOps' checks did not finish`) is cleared once the build passed. A turn of its agent that changes nothing (you typed in its pane, it
 compacted its conversation) leaves it where it was: never "stopped without a summary" with the agent's screen line.
 
 ## Its policies are its checks
@@ -80,8 +88,9 @@ compacted its conversation) leaves it where it was: never "stopped without a sum
 
 | Policy | The board |
 |---|---|
-| a build validation or status check still running | waits, at most `check.timeout`: `Waiting for Azure DevOps checks · 0 of 1 passed` |
-| a build validation held at an approval (its environment's check in Azure Pipelines) | waits for you, with no timeout: `Waiting for your approval in Azure DevOps: the build reports, at Staging`. Once you approve it there, it waits for the build again, `check.timeout` counting from then |
+| a build validation still running | waits for it as long as it runs (a build is never cut off by `check.timeout`): `Waiting for Azure DevOps checks · 0 of 1 passed` |
+| a status check still running, or none started | waits, at most `check.timeout` |
+| a build validation held at an approval (its environment's check in Azure Pipelines) | waits for you, with no timeout: `Pipeline reports waits for your approval of stage Staging in Azure DevOps: <run>`. Once you approve it there, it waits for the build again |
 | one that failed | merges nothing; the failure goes back to the agent with the policy's name, the failing job and step, and the end of its log, within `review.rounds`, then waits for you (`approve <id> --anyway` merges all the same) |
 | a policy of people not met (reviewers, required reviewers, resolved comments, linked work items) | waits for it, as a review still required on GitHub; a reviewer who rejects, or waits for the author, is a change asked for |
 | one that is not blocking | never holds the merge up |
@@ -100,9 +109,10 @@ repo has) runs for the merge commit, its row saying how far: `Main pipeline runn
   pull request brings the fix in. `retry` looks at the runs again, after you ran the pipeline again in Azure DevOps (the
   newest run of a pipeline counts).
 - **Held at an approval** in Azure DevOps (a deployment stage's environment check): the task waits for you,
-  `Waiting for your approval in Azure DevOps: the pipeline reports, at Production_DE`, with no timeout; once approved
-  there it goes on by itself.
-- **Not through after `merge.pipelineTimeout`** (60 minutes by default, counted from your last approval there): it
+  `Main pipeline reports waits for your approval of stage prodDE in Azure DevOps: <run>`, with no timeout; once
+  approved there it goes on by itself.
+- **Running**: waited for as long as it runs, never cut off.
+- **Not started after `merge.pipelineTimeout`** (60 minutes by default, counted from your last approval there): it
   waits for you with that reason.
 
 `merge.pipeline` says which runs it waits for:

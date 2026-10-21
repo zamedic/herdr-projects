@@ -1,6 +1,7 @@
 //! The base branch's pipeline runs for a merge commit on Azure Pipelines (`az pipelines runs list`), the ones
 //! `merge.pipeline` names, and what they say together: still to start, running (how far: `Main pipeline running · 2 of
-//! 3 stages`, `Deploying staging`), passed, or failed with the failing job's name and the end of its log.
+//! 3 stages`, `Deploying staging`), held at an approval for you (`Main pipeline reports waits for your approval of stage
+//! prodDE in Azure DevOps: <run>`), passed, or failed with the failing job's name and the end of its log.
 use super::cli::json_of;
 use super::logs::{tail, timeline};
 use super::url::Azure;
@@ -52,35 +53,49 @@ pub fn passed(r: &Run) -> bool { r.status == "completed" && (r.result == "succee
 pub fn failed(r: &Run) -> bool { r.status == "completed" && !passed(r) }
 /// A stage of a run: its name, whether it is through, whether it is under way, and whether a deployment job of it
 /// runs (a job named `Deploy…`, as a stage `Staging` with its job `Deploy` has), or has deployed (that job succeeded).
+/// `held`: it waits at an approval (its environment's check, `Checkpoint.Approval` under way) for a person;
+/// `skipped`: it was skipped (its condition, or an earlier stage that failed), so it counts as no stage of the run.
 #[derive(Clone, Debug, Default)]
-pub struct Stage { pub name: String, pub done: bool, pub running: bool, pub deploying: bool, pub deployed: bool }
+pub struct Stage { pub name: String, pub done: bool, pub running: bool, pub deploying: bool, pub deployed: bool, pub held: bool, pub skipped: bool }
+/// The stage a record is in: up its parents (step, job, phase, checkpoint, stage). Empty: none.
+fn stage_of(recs: &[super::logs::Record], r: &super::logs::Record) -> String {
+    let mut at = r.parent.clone();
+    for _ in 0..5 { match recs.iter().find(|x| x.id == at) { Some(x) if x.kind == "Stage" => return x.id.clone(), Some(x) => at = x.parent.clone(), None => break } }
+    String::new()
+}
 pub fn stages_of(recs: &[super::logs::Record]) -> Vec<Stage> {
-    // A job's stage: up its parents (job, phase, stage).
-    let stage_of = |r: &super::logs::Record| { let mut at = r.parent.clone(); for _ in 0..4 { match recs.iter().find(|x| x.id == at) { Some(x) if x.kind == "Stage" => return x.id.clone(), Some(x) => at = x.parent.clone(), None => break } } String::new() };
-    let deploying: Vec<String> = recs.iter().filter(|r| r.kind == "Job" && r.state == "inProgress" && r.name.to_lowercase().starts_with("deploy")).map(stage_of).collect();
-    let deployed: Vec<String> = recs.iter().filter(|r| r.kind == "Job" && r.state == "completed" && r.result == "succeeded" && r.name.to_lowercase().starts_with("deploy")).map(stage_of).collect();
-    recs.iter().filter(|r| r.kind == "Stage").map(|r| Stage { done: r.state == "completed", running: r.state == "inProgress", deploying: deploying.contains(&r.id), deployed: deployed.contains(&r.id) || (r.result == "succeeded" && deploy_target(&r.name).is_some()), name: r.name.clone() }).collect()
+    let deploy_job = |r: &&super::logs::Record| r.kind == "Job" && r.name.to_lowercase().starts_with("deploy");
+    let deploying: Vec<String> = recs.iter().filter(deploy_job).filter(|r| r.state == "inProgress").map(|r| stage_of(recs, r)).collect();
+    let deployed: Vec<String> = recs.iter().filter(deploy_job).filter(|r| r.state == "completed" && r.result == "succeeded").map(|r| stage_of(recs, r)).collect();
+    let held: Vec<String> = recs.iter().filter(|r| r.kind == "Checkpoint.Approval" && r.state == "inProgress").map(|r| stage_of(recs, r)).collect();
+    recs.iter().filter(|r| r.kind == "Stage").map(|r| Stage { done: r.state == "completed", running: r.state == "inProgress", deploying: deploying.contains(&r.id), deployed: deployed.contains(&r.id) || (r.result == "succeeded" && deploy_target(&r.name).is_some()),
+        held: held.contains(&r.id), skipped: r.result == "skipped", name: r.name.clone() }).collect()
 }
 pub fn stages(a: &Azure, root: &Path, run: &str) -> Vec<Stage> { stages_of(&timeline(a, root, run)) }
-/// The stages of a run held at an approval (a check of its environment, `Checkpoint.Approval` under way): they wait
-/// for a person, not for the machine.
-pub fn approvals_of(recs: &[super::logs::Record]) -> Vec<String> {
-    let mut out: Vec<String> = vec![];
-    for r in recs.iter().filter(|r| r.kind == "Checkpoint.Approval" && r.state == "inProgress") {
-        let mut at = r.parent.clone();
-        for _ in 0..4 { match recs.iter().find(|x| x.id == at) { Some(x) if x.kind == "Stage" => { if !out.contains(&x.name) { out.push(x.name.clone()); } break; } Some(x) => at = x.parent.clone(), None => break } }
-    }
-    out
+/// The stages of a run held at an approval: they wait for a person, not for the machine.
+pub fn approvals_of(recs: &[super::logs::Record]) -> Vec<String> { stages_of(recs).into_iter().filter(|s| s.held).map(|s| s.name).collect() }
+/// One run held so, in words: `Pipeline reports waits for your approval of stage Staging in Azure DevOps: <its URL>`.
+pub fn held_words(run: &str, stages: &[String], url: &str) -> String {
+    format!("{run} waits for your approval of stage{} {} in Azure DevOps: {url}", if stages.len() > 1 { "s" } else { "" }, stages.join(", "))
 }
-/// What waits for your approval in Azure DevOps, in words (`the build reports, at Staging`), of runs by id and name.
-/// Empty: nothing does.
+/// What waits for your approval in Azure DevOps, in words, of runs by id and name (`Pipeline reports`). Empty:
+/// nothing does.
 pub fn awaiting(a: &Azure, root: &Path, runs: &[(String, String)]) -> String {
-    awaiting_of(&runs.iter().map(|(id, name)| (name.clone(), timeline(a, root, id))).collect::<Vec<_>>())
+    awaiting_of(&runs.iter().map(|(id, name)| (name.clone(), a.build_url(id), timeline(a, root, id))).collect::<Vec<_>>())
 }
-/// The same, of timelines already read, by the run's name.
-pub fn awaiting_of(read: &[(String, Vec<super::logs::Record>)]) -> String {
-    let parts: Vec<String> = read.iter().filter_map(|(name, recs)| { let at = approvals_of(recs); (!at.is_empty()).then(|| format!("{name}, at {}", at.join(", "))) }).collect();
-    if parts.is_empty() { String::new() } else { format!("Waiting for your approval in Azure DevOps: {}", parts.join("; ")) }
+/// The same, of timelines already read, by the run's name and URL.
+pub fn awaiting_of(read: &[(String, String, Vec<super::logs::Record>)]) -> String {
+    read.iter().filter_map(|(name, url, recs)| { let at = approvals_of(recs); (!at.is_empty()).then(|| held_words(name, &at, url)) }).collect::<Vec<_>>().join("; ")
+}
+/// The stages skipped, for the end of a row's words (` · Lint skipped`). Empty: none was.
+pub fn skipped_words(stages: &[Stage]) -> String {
+    let names: Vec<String> = stages.iter().filter(|s| s.skipped).map(|s| s.name.replace('_', " ")).collect();
+    if names.is_empty() { String::new() } else { format!(" · {} skipped", names.join(", ")) }
+}
+/// How many of the stages that run are through: `2 of 3 stages` (a skipped stage is not one of them).
+pub fn through(stages: &[Stage]) -> String {
+    let run: Vec<&Stage> = stages.iter().filter(|s| !s.skipped).collect();
+    format!("{} of {} stages", run.iter().filter(|s| s.done).count(), run.len())
 }
 /// Where a stage named for a deployment deploys to: `Deploy_Staging` is `Staging`, `Deployment` says nowhere (empty).
 /// None: the stage is not named so.
@@ -99,10 +114,11 @@ pub fn progress(stages: &[Stage], runs: usize) -> String {
     }
     if let Some(s) = stages.iter().find(|s| s.running && s.deploying) { return format!("Deploying {}", s.name.replace('_', " ")); }
     if stages.is_empty() { return format!("{word} running"); }
-    format!("{word} running · {} of {} stages", stages.iter().filter(|s| s.done).count(), stages.len())
+    format!("{word} running · {}{}", through(stages), skipped_words(stages))
 }
 /// What the runs say together.
-/// `Approval`: running, and held at an approval: in words, what waits for you.
+/// `Running`: a run under way (never a failure, however long it takes); `Approval`: running, and held at an approval:
+/// in words, what waits for you.
 pub enum Look { Passed(String), Running(String), Approval(String), Failed { why: String, detail: String }, NotStarted(Vec<String>) }
 /// `runs`: those of the commit `merge.pipeline` waits for (`wanted`), `missing`: those it names not run yet.
 pub fn look(a: &Azure, root: &Path, runs: &[Run], missing: &[String]) -> Look {
@@ -112,13 +128,14 @@ pub fn look(a: &Azure, root: &Path, runs: &[Run], missing: &[String]) -> Look {
     }
     if runs.is_empty() { return Look::NotStarted(missing.to_vec()); }
     let going: Vec<&Run> = runs.iter().filter(|r| !passed(r)).collect();
-    if going.is_empty() && missing.is_empty() {
+    if going.is_empty() && !missing.is_empty() { return Look::NotStarted(missing.to_vec()); }
+    if going.is_empty() {
         return Look::Passed(runs.iter().map(|r| format!("{} {}", r.pipeline, if r.result == "partiallysucceeded" { "partly succeeded" } else { "passed" })).collect::<Vec<_>>().join(", "));
     }
     // Each run's timeline, read once: what is held at an approval, else how far its stages are.
-    let read: Vec<(String, Vec<super::logs::Record>)> = going.iter().map(|r| (format!("the pipeline {}", r.pipeline), timeline(a, root, &r.id))).collect();
+    let read: Vec<(String, String, Vec<super::logs::Record>)> = going.iter().map(|r| (format!("Main pipeline {}", r.pipeline), a.build_url(&r.id), timeline(a, root, &r.id))).collect();
     let held = awaiting_of(&read);
     if !held.is_empty() { return Look::Approval(held); }
-    let all: Vec<Stage> = read.iter().flat_map(|(_, recs)| stages_of(recs)).collect();
-    Look::Running(if going.is_empty() { format!("Waiting for the pipeline {} to start", missing.join(", ")) } else { progress(&all, going.len()) })
+    let all: Vec<Stage> = read.iter().flat_map(|(_, _, recs)| stages_of(recs)).collect();
+    Look::Running(progress(&all, going.len()))
 }

@@ -142,7 +142,14 @@ it merges:
 
 A repo whose origin is at Azure DevOps has its pull request there, opened, merged and watched the same way through the
 Azure CLI, and its task is done only once the base branch's pipeline passed for the merge commit:
-[Azure DevOps](azure-devops.md).
+[Azure DevOps](azure-devops.md). A run there that stops at an approval before a stage (an environment's check, read
+from the run's timeline) waits for you, never counts as failed or as running, and nothing goes to the agent for it:
+before your yes the task needs you, its row saying `Pull request open · waits for your approval of stage Staging in
+Azure DevOps` and its panel which run (with its URL), its approval question kept and your yes still possible; after
+your yes, or after the merge for the main pipeline, it says `Main pipeline reports waits for your approval of stage
+prodDE in Azure DevOps: <run>`. A build or main pipeline run under way is waited for as long as it runs: neither
+`check.timeout` nor `merge.pipelineTimeout` cuts it off, and the board completes the pull request by itself once
+its builds and policies pass.
 
 A conflict found here goes back to the agent the same way, and the merge you approved is retried after its repair. A
 checkout with unsaved files is never forced. Merging without your yes: [merging by itself](gate.md#merging-by-itself).

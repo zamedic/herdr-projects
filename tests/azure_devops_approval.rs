@@ -38,10 +38,10 @@ fn a_build_validation_held_at_an_approval_makes_the_merge_wait_for_you_with_no_t
     w.az_says(json!({ "head": head, "policies": [policy("Build", "reports", "running", Some(7))], "timeline": { "7": held_at_staging() } }));
     finish_line::approve(&id, None, false).unwrap();
     let t = settle(&id);
-    assert_eq!((t.s("stage"), t.s("msg")), ("merging", "Waiting for your approval in Azure DevOps: the build reports, at Staging"), "{}", t.at("failure"));
+    assert_eq!((t.s("stage"), t.s("msg")), ("merging", "Pipeline reports waits for your approval of stage Staging in Azure DevOps: https://dev.azure.com/acme/Big%20Project/_build/results?buildId=7"), "{}", t.at("failure"));
     assert_eq!(state(&id), ("blocked".to_string(), "permission".to_string()), "it waits for you, not for the machine");
     // the approval is Azure DevOps' to give: the board offers no yes of its own, and its yes says where to give it
-    let answer = format!("{} waits for your approval in Azure DevOps (the build reports, at Staging), not for a yes here: approve it there and the board goes on by itself.", task(&id).s("id"));
+    let answer = format!("{} waits for an approval in Azure DevOps, not for a yes here: approve it there and the board goes on by itself. Pipeline reports waits for your approval of stage Staging in Azure DevOps: https://dev.azure.com/acme/Big%20Project/_build/results?buildId=7", task(&id).s("id"));
     assert_eq!(finish_line::approve(&id, None, false).err().map(|e| e.msg), Some(answer.clone()));
     let mut b = common::board::open(&w.root, 44);
     b.s.sel = id.clone(); b.load();
@@ -82,7 +82,7 @@ fn a_main_pipeline_held_at_an_approval_waits_for_you_past_its_timeout() {
     w.az_says(json!({ "head": head, "status": "completed", "runs": [run(5, "reports", &merge_commit(), "inProgress", "")], "timeline": { "5": held_at_staging() } }));
     poll_prs();
     let t = task(&id);
-    assert_eq!(t.s("msg"), "Waiting for your approval in Azure DevOps: the pipeline reports, at Staging");
+    assert_eq!(t.s("msg"), "Main pipeline reports waits for your approval of stage Staging in Azure DevOps: https://dev.azure.com/acme/Big%20Project/_build/results?buildId=5");
     assert_eq!(state(&id), ("blocked".to_string(), "permission".to_string()));
     sw::clock::advance(45 * 60000);
     poll_prs();

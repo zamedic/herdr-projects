@@ -1,7 +1,8 @@
 //! What a task shows of its pull request on Azure DevOps: one line for the task panel (its reviewers' votes and its
 //! policies, kept on the task by the pull requests' watch as `prRemote`), and for `details` the pull request as Azure
 //! DevOps says it now, with the main pipeline's runs of its merge commit while the task waits for them; and what a
-//! task held at an approval there waits for.
+//! task held at an approval there waits for: after your yes (it waits for you there alone), or before it (its pull
+//! request's own pipeline held: it needs you, and your yes here is still yours to give).
 use super::{host, pr, runs};
 use crate::json::*;
 use crate::store::repos::folder_of;
@@ -12,10 +13,16 @@ pub fn held(t: &Obj) -> Option<String> {
     if t.s("stage") != "merging" { return None; }
     [t.at("checksWait").s("approval"), t.at("pipelineWait").s("approval")].into_iter().find(|s| !s.is_empty()).map(String::from)
 }
-/// What yes says to such a task: the approval is Azure DevOps' to give, not the board's.
+/// Before your yes: its pull request's own pipeline is held at an approval in Azure DevOps (azure/pr_pipeline.rs), in
+/// words with the run's URL. The task needs you; a yes here is remembered and the board completes the pull request once
+/// that approval was given there and its policies passed. None: nothing is held.
+pub fn held_before_yes(t: &Obj) -> Option<String> {
+    if t.s("stage") != "approval" || !pr::is_azure(t.s("pr")) { return None; }
+    Some(t.at("prPipeline").s("approval")).filter(|s| !s.is_empty()).map(String::from)
+}
+/// What yes says to a task held after it: the approval is Azure DevOps' to give, not the board's.
 pub fn held_answer(id: &str, why: &str) -> String {
-    let what = why.strip_prefix("Waiting for your approval in Azure DevOps: ").unwrap_or(why);
-    format!("{id} waits for your approval in Azure DevOps ({what}), not for a yes here: approve it there and the board goes on by itself.")
+    format!("{id} waits for an approval in Azure DevOps, not for a yes here: approve it there and the board goes on by itself. {why}")
 }
 /// A reviewer's vote in words.
 pub fn vote(v: i64) -> &'static str { match v { 10 => "approved", 5 => "approved with suggestions", -5 => "waiting for the author", -10 => "rejected", _ => "no vote" } }
