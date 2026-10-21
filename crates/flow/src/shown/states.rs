@@ -39,7 +39,8 @@ pub fn reviewer_mark(r: &Obj) -> bool { under_review(r) && waiting_of(r).is_none
 pub fn needs_you(r: &Obj) -> bool { r.s("state") == "blocked" || r.s("state") == "error" }
 pub fn reviewer_word(r: &Obj) -> &'static str { if waiting_of(r).is_some() { "reviewer was cut off" } else { "reviewer is working" } }
 pub fn group_of(r: &Obj) -> &'static str {
-    if in_review(r) { "ready to approve" } else if needs_you(r) { "needs you" } else if r.s("state") == "working" { "working" } else if r.s("state") == "done" { "done" } else { "to do" }
+    // Its pull request's pipeline held at an approval in Azure DevOps: it needs you there first (azure/shown.rs).
+    if in_review(r) && crate::azure::shown::held_before_yes(r).is_none() { "ready to approve" } else if needs_you(r) { "needs you" } else if r.s("state") == "working" { "working" } else if r.s("state") == "done" { "done" } else { "to do" }
 }
 /// Where a task stands, in the words of the one list.
 pub fn standing(r: &Obj) -> String {

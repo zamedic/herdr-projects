@@ -1,5 +1,6 @@
 //! GitHub's checks on a pull request, looked at right before it merges (`merge.checks`): still running, the merge
-//! waits for them (at most `check.timeout`, then for you); failed, nothing merges and the failure goes back to the
+//! waits for them (at most `check.timeout`, then for you; a build of an Azure DevOps policy under way, as long as it
+//! runs); failed, nothing merges and the failure goes back to the
 //! agent with each failing check's name and the end of its log, as a failed check of the board's own does, within
 //! `review.rounds`, then waits for you; passed, or none at all, it merges (none listed where checks are coming is
 //! waited for, and so is one that is gone from the list, or a workflow's run not through: judge). `approve --anyway` merges without them.
@@ -167,9 +168,12 @@ pub fn failed_on(t: &Obj) -> Option<String> {
 /// approval), in words; empty when nothing does.
 pub fn held_builds(root: &Path, listed: &[Value]) -> String {
     let Some(a) = crate::azure::host(root) else { return String::new() };
-    let running: Vec<(String, String)> = listed.iter().filter(|c| c.b("buildId") && !CHECK_GOOD.contains(&word(c).as_str()) && !CHECK_BAD.contains(&word(c).as_str())).map(|c| (c.t("buildId"), format!("the build {}", name(c)))).collect();
+    let running: Vec<(String, String)> = listed.iter().filter(|c| c.b("buildId") && !CHECK_GOOD.contains(&word(c).as_str()) && !CHECK_BAD.contains(&word(c).as_str())).map(|c| (c.t("buildId"), format!("Pipeline {}", name(c)))).collect();
     if running.is_empty() { String::new() } else { crate::azure::runs::awaiting(&a, root, &running) }
 }
+/// A build of an Azure pull request's policies is under way (not passed, not failed): `check.timeout` does not cut off
+/// the wait for it, however long it runs or sat at an approval; the approval given stays in force.
+pub fn building(listed: &[Value]) -> bool { listed.iter().any(|c| c.b("buildId") && !CHECK_GOOD.contains(&word(c).as_str()) && !CHECK_BAD.contains(&word(c).as_str())) }
 /// The board has waited for GitHub's checks longer than `check.timeout`.
 pub fn overdue(t: &Obj) -> bool { let l = ms(&setting_text("check.timeout", Some(t))); l > 0 && now() - t.at("checksWait").i("since") >= l }
 
@@ -214,7 +218,7 @@ pub fn before_merge(id: &str, g: &mut Guard, t: &Task, root: &Path) -> Res<bool>
             // A build held at an approval in Azure DevOps waits for you, never for a timeout (azure/runs.rs).
             let held = if read.azure { held_builds(root, listed) } else { String::new() };
             let since = if held.is_empty() { since } else { now() }; // `check.timeout` counts from your yes
-            let stuck = held.is_empty() && { let mut x = t.clone(); x.put("checksWait", json!({ "since": since })); overdue(&x) };
+            let stuck = held.is_empty() && !(read.azure && building(listed)) && { let mut x = t.clone(); x.put("checksWait", json!({ "since": since })); overdue(&x) };
             if stuck {
                 g.set(|t| { t.put("checksWait", Value::Null); t.put("autoMerge", false); t.put("autoMergeLocal", false); })?;
                 let timeout = setting_text("check.timeout", Some(t));

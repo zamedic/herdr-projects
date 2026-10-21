@@ -1,7 +1,9 @@
 //! What a task shows of its pull request on Azure DevOps: one line for the task panel (its reviewers' votes and its
 //! policies, kept on the task by the pull requests' watch as `prRemote`), and for `details` the pull request as Azure
 //! DevOps says it now, with the main pipeline's runs of its merge commit while the task waits for them; what your yes,
-//! given there too, still waits for; and what a task held at an approval there waits for.
+//! given there too, still waits for; and what a task held at an approval there waits for: after your yes (it waits for
+//! you there alone), or before it (its pull request's own pipeline held: it needs you, and your yes here is still
+//! yours to give).
 use super::{host, pr, runs};
 use crate::json::*;
 use crate::store::repos::folder_of;
@@ -12,12 +14,18 @@ pub fn held(t: &Obj) -> Option<String> {
     if t.s("stage") != "merging" { return None; }
     [t.at("checksWait").s("approval"), t.at("pipelineWait").s("approval")].into_iter().find(|s| !s.is_empty()).map(String::from)
 }
-/// What yes says to such a task: the approval is Azure DevOps' to give, not the board's. Your vote on its pull request
-/// was cast with your first yes: what it still waits for from people is said too.
+/// Before your yes: its pull request's own pipeline is held at an approval in Azure DevOps (azure/pr_pipeline.rs), in
+/// words with the run's URL. The task needs you; a yes here is remembered and the board completes the pull request once
+/// that approval was given there and its policies passed. None: nothing is held.
+pub fn held_before_yes(t: &Obj) -> Option<String> {
+    if t.s("stage") != "approval" || !pr::is_azure(t.s("pr")) { return None; }
+    Some(t.at("prPipeline").s("approval")).filter(|s| !s.is_empty()).map(String::from)
+}
+/// What yes says to a task held after it: the approval is Azure DevOps' to give, not the board's. Your vote on its pull
+/// request was cast with your first yes: what it still waits for from people is said too.
 pub fn held_answer(t: &Obj, why: &str) -> String {
-    let what = why.strip_prefix("Waiting for your approval in Azure DevOps: ").unwrap_or(why);
-    let vote = if t.b("azureVote") { format!(" {}.", approved_words(t.at("azureVote"), &strings(t.at("azureVote").at("waits")), "")) } else { String::new() };
-    format!("{} waits for your approval in Azure DevOps ({what}), not for a yes here: approve it there and the board goes on by itself.{vote}", t.s("id"))
+    let vote = if t.b("azureVote") { format!(". {}.", approved_words(t.at("azureVote"), &strings(t.at("azureVote").at("waits")), "")) } else { String::new() };
+    format!("{} waits for an approval in Azure DevOps, not for a yes here: approve it there and the board goes on by itself. {why}{vote}", t.s("id"))
 }
 /// What the task says once your yes was given in Azure DevOps too (land/vote_azure.rs), while the pull request waits:
 /// `Approved here and in Azure · waits for 1 more reviewer (policy: Minimum number of reviewers)`. `vote`: the task's
