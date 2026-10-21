@@ -111,9 +111,9 @@ repo has) runs for the merge commit, its row saying how far: `Main pipeline runn
 - **Held at an approval** in Azure DevOps (a deployment stage's environment check): the task waits for you,
   `Main pipeline reports waits for your approval of stage prodDE in Azure DevOps: <run>`, with no timeout; once
   approved there it goes on by itself.
-- **Running**: waited for as long as it runs, never cut off.
-- **Not started after `merge.pipelineTimeout`** (60 minutes by default, counted from your last approval there): it
-  waits for you with that reason.
+- **Running**: once a job of it has an agent, waited for as long as it runs, never cut off.
+- **Not started after `merge.pipelineTimeout`** (60 minutes by default, counted from your last approval there), or
+  queued all that time with no job on an agent: it waits for you with that reason.
 
 `merge.pipeline` says which runs it waits for:
 

@@ -67,7 +67,7 @@ pub fn stages_of(recs: &[super::logs::Record]) -> Vec<Stage> {
     let deploy_job = |r: &&super::logs::Record| r.kind == "Job" && r.name.to_lowercase().starts_with("deploy");
     let deploying: Vec<String> = recs.iter().filter(deploy_job).filter(|r| r.state == "inProgress").map(|r| stage_of(recs, r)).collect();
     let deployed: Vec<String> = recs.iter().filter(deploy_job).filter(|r| r.state == "completed" && r.result == "succeeded").map(|r| stage_of(recs, r)).collect();
-    let held: Vec<String> = recs.iter().filter(|r| r.kind == "Checkpoint.Approval" && r.state == "inProgress").map(|r| stage_of(recs, r)).collect();
+    let held: Vec<String> = recs.iter().filter(|r| r.kind == "Checkpoint.Approval" && (r.state == "inProgress" || r.state == "pending")).map(|r| stage_of(recs, r)).collect();
     recs.iter().filter(|r| r.kind == "Stage").map(|r| Stage { done: r.state == "completed", running: r.state == "inProgress", deploying: deploying.contains(&r.id), deployed: deployed.contains(&r.id) || (r.result == "succeeded" && deploy_target(&r.name).is_some()),
         held: held.contains(&r.id), skipped: r.result == "skipped", name: r.name.clone() }).collect()
 }
@@ -117,9 +117,10 @@ pub fn progress(stages: &[Stage], runs: usize) -> String {
     format!("{word} running · {}{}", through(stages), skipped_words(stages))
 }
 /// What the runs say together.
-/// `Running`: a run under way (never a failure, however long it takes); `Approval`: running, and held at an approval:
+/// `Running`: runs not through; `started`: a job of one of them has picked up an agent, so it is under way (never cut off,
+/// however long it takes), else it is queued (an agent may never come: `merge.pipelineTimeout` holds); `Approval`: running, and held at an approval:
 /// in words, what waits for you.
-pub enum Look { Passed(String), Running(String), Approval(String), Failed { why: String, detail: String }, NotStarted(Vec<String>) }
+pub enum Look { Passed(String), Running { words: String, started: bool }, Approval(String), Failed { why: String, detail: String }, NotStarted(Vec<String>) }
 /// `runs`: those of the commit `merge.pipeline` waits for (`wanted`), `missing`: those it names not run yet.
 pub fn look(a: &Azure, root: &Path, runs: &[Run], missing: &[String]) -> Look {
     if let Some(r) = runs.iter().find(|r| failed(r)) {
@@ -137,5 +138,6 @@ pub fn look(a: &Azure, root: &Path, runs: &[Run], missing: &[String]) -> Look {
     let held = awaiting_of(&read);
     if !held.is_empty() { return Look::Approval(held); }
     let all: Vec<Stage> = read.iter().flat_map(|(_, _, recs)| stages_of(recs)).collect();
-    Look::Running(progress(&all, going.len()))
+    let started = read.iter().any(|(_, _, recs)| recs.iter().any(|r| r.kind == "Job" && (r.state == "inProgress" || r.state == "completed")));
+    Look::Running { words: progress(&all, going.len()), started }
 }

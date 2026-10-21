@@ -148,7 +148,8 @@ before your yes the task needs you, its row saying `Pull request open · waits f
 Azure DevOps` and its panel which run (with its URL), its approval question kept and your yes still possible; after
 your yes, or after the merge for the main pipeline, it says `Main pipeline reports waits for your approval of stage
 prodDE in Azure DevOps: <run>`. A build or main pipeline run under way is waited for as long as it runs: neither
-`check.timeout` nor `merge.pipelineTimeout` cuts it off, and the board completes the pull request by itself once
+`check.timeout` nor `merge.pipelineTimeout` cuts it off (the latter still does a main pipeline run queued with no job on
+an agent), and the board completes the pull request by itself once
 its builds and policies pass.
 
 A conflict found here goes back to the agent the same way, and the merge you approved is retried after its repair. A

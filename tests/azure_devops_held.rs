@@ -55,6 +55,9 @@ fn stages(v: &Value) -> Vec<runs::Stage> { runs::stages_of(&logs::records_of(v))
 fn a_recorded_timeline_says_the_stage_held_at_an_approval_the_stages_skipped_and_what_failed() {
     let held = stages(&held_timeline());
     assert_eq!(runs::approvals_of(&logs::records_of(&held_timeline())), vec!["Staging".to_string()]);
+    let mut pending = held_timeline(); pending["records"][8]["state"] = json!("pending");
+    assert_eq!(pending["records"][8].s("type"), "Checkpoint.Approval");
+    assert_eq!(runs::approvals_of(&logs::records_of(&pending)), vec!["Staging".to_string()], "a pending approval holds it too");
     assert_eq!(pr_pipeline::words("running", &held), "Pull request open · waits for your approval of stage Staging in Azure DevOps");
     assert_eq!(runs::awaiting_of(&[("Pipeline reports".into(), RUN.into(), logs::records_of(&held_timeline()))]), format!("Pipeline reports waits for your approval of stage Staging in Azure DevOps: {RUN}"));
     // approved there: it runs on, its skipped stage no stage of the run
@@ -186,4 +189,23 @@ fn a_wait_for_its_builds_that_ran_out_before_is_cleared_once_the_build_passed() 
     assert_eq!(t.s("stage"), "approval");
     assert!(t.s("msg").starts_with("Approve to merge? Did v1."), "the approval question again: {}", t.s("msg"));
     assert_eq!(group_of(&row(&id)), "ready to approve");
+}
+
+#[test]
+fn a_main_pipeline_run_queued_with_no_agent_past_its_timeout_waits_for_you() {
+    let w = az_world(json!({ "merge.pipelineTimeout": "30m" }));
+    let id = to_approval(&w, "No agent");
+    let head = git(Path::new(task(&id).s("worktree")), &["rev-parse", "HEAD"]);
+    w.az_says(json!({ "head": head }));
+    finish_line::approve(&id, None, false).unwrap();
+    settle(&id);
+    let queued = json!({ "records": [rec("s1", "", "Stage", "Build & Push", "pending", None, 1), rec("j1", "s1", "Job", "service", "pending", None, 1)] });
+    w.az_says(json!({ "head": head, "status": "completed", "runs": [common::az::run(5, "reports", &merge_commit(), "notStarted", "")], "timeline": { "5": queued } }));
+    poll_prs();
+    assert_eq!(settle(&id).s("stage"), "merging", "not yet past its timeout");
+    sw::clock::advance(10 * 60 * 60000);
+    poll_prs();
+    let t = settle(&id);
+    assert_eq!((t.s("stage"), t.at("failure").s("title")), ("failed", "The main pipeline did not finish"), "{}", t.s("msg"));
+    assert!(t.at("failure").s("detail").contains("no job started"), "{}", t.at("failure"));
 }

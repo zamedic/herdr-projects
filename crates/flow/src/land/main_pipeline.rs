@@ -3,8 +3,9 @@
 //! or `none`). Meanwhile the task stays at stage "merging" with `pipelineWait`, its row saying how far the runs are,
 //! looked at on the pull requests' cadence (housekeeping/prs.rs). Passed: done, and cleaned up. Failed or cancelled:
 //! it waits for you with the reason and the end of the failing job's log, `fix` sends that to the agent, whose next
-//! finish opens a new pull request; `retry` looks at the runs again. Longer than `merge.pipelineTimeout`: it waits for you. A run held at an approval in Azure DevOps (its environment's check)
-//! waits for you as it is, with no timeout.
+//! finish opens a new pull request; `retry` looks at the runs again. Not started (or queued, no job with an agent yet)
+//! after `merge.pipelineTimeout`: it waits for you. A run under way is waited for as long as it runs, and one held at
+//! an approval in Azure DevOps (its environment's check) waits for you as it is, with no timeout.
 use crate::azure::{self, runs};
 use crate::clock::now;
 use crate::flow::{git::drop_remote_branch, sidebar::tell_sidebar, spaces::tidy_mark};
@@ -106,8 +107,9 @@ pub fn look(id: &str) {
             say(id, &format!("Merged: {}. Waiting for the main pipeline to start", t.s("pr")));
         }
         runs::Look::NotStarted(names) => { if overdue(&t) { return late(&format!("{} not started", names.join(", "))); } say(id, &format!("Merged. Waiting for the pipeline {} to start", names.join(", "))); }
-        // A run under way is not cut off: a long build, or one that sat at an approval, is still running.
-        runs::Look::Running(words) => say(id, &words),
+        // A run under way is not cut off: a long build, or one that sat at an approval, is still running. One still
+        // queued (no job has had an agent yet) is, past `merge.pipelineTimeout`.
+        runs::Look::Running { words, started } => { if !started && overdue(&t) { return late(&format!("{words}, no job started")); } say(id, &words); }
         // Waiting for a person is not the pipeline taking too long: no timeout while it is so.
         runs::Look::Approval(words) => say_held(id, &words, true),
     }
