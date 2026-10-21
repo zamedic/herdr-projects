@@ -10,7 +10,7 @@ use std::path::Path;
 use sw::actions::finish_line;
 use sw::housekeeping::poll_prs;
 use sw::json::*;
-use super::azure_devops_flow::{az_world, merge_commit};
+use super::flow::{az_world, merge_commit};
 
 /// To approval, approved, its pull request completed: the task waits for its main pipeline.
 fn merged(w: &World, title: &str) -> (String, String) {

@@ -13,7 +13,7 @@ use sw::azure::{logs, pr_pipeline, runs};
 use sw::housekeeping::poll_prs;
 use sw::json::*;
 use sw::shown::{row_says::sentence, states::group_of};
-use super::azure_devops_flow::{az_world, merge_commit};
+use super::flow::{az_world, merge_commit};
 
 const RUN: &str = "https://dev.azure.com/acme/Big%20Project/_build/results?buildId=8";
 fn rec(id: &str, parent: &str, kind: &str, name: &str, state: &str, result: Option<&str>, order: i64) -> Value {

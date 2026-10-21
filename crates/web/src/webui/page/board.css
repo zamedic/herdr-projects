@@ -18,6 +18,7 @@
   /* An automation: a purple, which no status of the web UI has. The board's own, pulled towards the page's text
      colour as the teal is, so it reads on light and dark alike. */
   --sw-auto: color-mix(in srgb, #a855f7 78%, var(--text, #d8d0c3));
+  --sw-pilot: color-mix(in srgb, #f97316 80%, var(--text, #d8d0c3));
   /* A task that waits for a free slot: a pink, which no status of the web UI has either. The board's own, pulled
      towards the page's text colour as the purple is. */
   --sw-queue: color-mix(in srgb, #ec4899 80%, var(--text, #d8d0c3));
@@ -167,6 +168,10 @@
 .sw-fold { display: inline-flex; align-items: baseline; gap: var(--space-2, 8px); margin: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; text-align: left; }
 .sw-caret { width: 1em; color: var(--sw-dim); font-weight: var(--fw-regular, 400); }
 @media (pointer: coarse) { .sw-fold { align-items: center; min-height: var(--touch-target, 40px); } .sw-group-name { align-items: center; padding-bottom: 0; } }
+/* A coordinator on autopilot: its line beside its heading, in autopilot's own colour (docs/colours.md). */
+.sw-pilot { margin-left: 1ch; font-weight: 400; font-size: var(--fs-sm, 13px); white-space: normal; }
+.sw-pilot-sum { font-weight: 400; }
+.sw-main-row { margin-top: var(--space-2, 8px); }
 .sw-group-name.is-selected, .sw-machine-name.is-selected { background: var(--sw-lift); box-shadow: inset 3px 0 0 var(--accent, #f0a830); border-radius: var(--radius-md, 8px); }
 .sw-fold:focus-visible { outline: var(--ring, 2px solid var(--sw-yellow)); outline-offset: var(--ring-offset, 2px); }
 .sw-count { color: var(--sw-dim); font-weight: var(--fw-regular, 400); letter-spacing: 0; }
@@ -225,7 +230,7 @@ a.sw-tag:hover { text-decoration: underline; }
 /* The board's colour names. */
 .sw-c-red { color: var(--sw-red); } .sw-c-green { color: var(--sw-green); } .sw-c-yellow { color: var(--sw-yellow); }
 .sw-c-teal { color: var(--sw-teal); } .sw-c-review, .sw-c-blue { color: var(--sw-review); } .sw-c-check, .sw-c-text { color: var(--sw-check); }
-.sw-c-plain { color: var(--sw-text); } .sw-c-auto { color: var(--sw-auto); } .sw-c-queue { color: var(--sw-queue); } .sw-c-overlay0, .sw-c-subtext0, .sw-c-surface_dim { color: var(--sw-dim); } .sw-c-surface1 { color: var(--sw-line); } .sw-c-todo { color: var(--sw-todo); } .sw-c-accent, .sw-c-peach { color: var(--accent, #f0a830); }
+.sw-c-plain { color: var(--sw-text); } .sw-c-auto { color: var(--sw-auto); } .sw-c-pilot { color: var(--sw-pilot); } .sw-c-queue { color: var(--sw-queue); } .sw-c-overlay0, .sw-c-subtext0, .sw-c-surface_dim { color: var(--sw-dim); } .sw-c-surface1 { color: var(--sw-line); } .sw-c-todo { color: var(--sw-todo); } .sw-c-accent, .sw-c-peach { color: var(--accent, #f0a830); }
 .sw-b { font-weight: var(--fw-semibold, 600); } .sw-d { opacity: 0.9; } /* a quiet mark: no fainter, or it falls under 3 to 1 on the light palettes */
 
 /* When the web UI's menu is not found: the Board, floating. */

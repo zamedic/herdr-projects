@@ -3,7 +3,7 @@
 //! people said on the task, in `details`, in the panel and in yes's answer to a task held there; the auto-complete
 //! set only where a push cannot be completed before the board looks again, and both taken back once the approval no
 //! longer stands; a rebase (which az cannot set) completed by the board alone.
-use crate::azure_devops_flow::az_world;
+use super::flow::az_world;
 use crate::common;
 use common::az::policy;
 use common::*;

@@ -1,7 +1,7 @@
 //! Completing a pull request on Azure DevOps when it does not go through at once: refused while a reviewer is awaited
 //! (it waits, and completes once the vote is there), refused with nothing to wait for (it goes back to you), and
 //! accepted but not carried out (its merge conflicts, or it stays active past `check.timeout`: it goes back to you).
-use crate::azure_devops_flow::az_world;
+use super::flow::az_world;
 use crate::common;
 use common::az::policy;
 use common::*;

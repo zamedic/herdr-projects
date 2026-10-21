@@ -12,7 +12,7 @@ use sw::cli::{flags::parse, tasks::command};
 use sw::housekeeping::poll_prs;
 use sw::json::*;
 use sw::shown::{row_says::sentence, states::{group_of, standing}};
-use super::azure_devops_flow::az_world;
+use super::flow::az_world;
 
 fn pass() -> Value { json!({ "verdict": { "meets": true, "findings": [], "text": "Looks right." } }) }
 /// Reviewed, passed, its pull request open at Azure DevOps with `says` (its policies, its reviewers' votes).

@@ -1,5 +1,15 @@
 //! Azure DevOps read the board's way (azure/): which host an origin URL is at, a pull request's status and votes as
 //! gh words them, its policies as checks, a build's failing job, and the main pipeline's runs and how far they are.
+//! The flow at Azure DevOps is one file per area in azure_devops/ (crate::azure_devops::flow holds the world they share).
+mod approval;
+mod completion;
+mod draft;
+mod flow;
+mod gate;
+mod held;
+mod ready;
+mod vote;
+
 use crate::common;
 use common::az::{policy, run};
 use serde_json::json;
