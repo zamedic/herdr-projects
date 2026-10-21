@@ -155,7 +155,7 @@ fn poll_one(id: &str, pr: &str, j: &Value, via: &str) {
             // An empty list is not a pass: they have not started yet, or went from the list (checks::none_listed).
             let gone = checks::missing(t, &head, via, &checks);
             if held.is_empty() && t.at("checksWait").b("approval") { t.obj_mut("checksWait").put("since", now()); t.obj_mut("checksWait").put("approval", Value::Null); } // `check.timeout` counts from your yes
-            if !failed.is_empty() || (!checks.is_empty() && all_good && gone.is_empty()) || ignored || (checks::overdue(t) && held.is_empty()) { t.put("autoMerge", false); t.put("autoMergeLocal", false); t.put("msg", "Merging"); then = Then::Land; }
+            if !failed.is_empty() || (!checks.is_empty() && all_good && gone.is_empty()) || ignored || (checks::overdue(t) && held.is_empty() && !checks::building(&checks)) { t.put("autoMerge", false); t.put("autoMergeLocal", false); t.put("msg", "Merging"); then = Then::Land; }
             else if !checks.is_empty() && t.at("checksWait").s("head") == head {
                 // Still running: which ones is kept, so that one gone from the list later is still waited for.
                 let names = checks::unique(checks.iter().filter(|c| !CHECK_GOOD.contains(&checks::word(c).as_str())).map(checks::name).chain(gone));
@@ -175,6 +175,11 @@ fn poll_one(id: &str, pr: &str, j: &Value, via: &str) {
             return Ok(Change::Write);
         }
         let passed = !checks.is_empty() && all_good;
+        // An earlier wait for its builds that ran out (`check.timeout`, before builds under way were waited for as long
+        // as they run): passed now, the task is back at the approval question.
+        if passed && crate::azure::pr::is_azure(pr) && t.s("stage") == "approval" && t.at("failure").s("stage") == "merge" && t.at("failure").s("title") == "Azure DevOps' checks did not finish" {
+            t.put("failure", Value::Null); t.put("mergeFailed", false); let m = approval_message(t); t.put("msg", m);
+        }
         t.put("prState", if blocking { "failing" } else if passed && decision != "REVIEW_REQUIRED" { "passing" } else { "waiting" });
         // Keep the last remote blocker independently of local check/review success.
         if blocking {
@@ -189,7 +194,10 @@ fn poll_one(id: &str, pr: &str, j: &Value, via: &str) {
             }
             if t.s("stage") == "approval" && !t.b("failure") { let m = format!("{}: {why} Send details to the agent, or wait for remote confirmation", t.at("prFailure").s("title")); t.put("msg", m); }
         } else if t.b("prFailure") {
-            let confirmed = if t.at("prFailure").s("remoteKind") == "review" { decision == "APPROVED" } else { t.s("prState") == "passing" };
+            // Checks: they passed on this head (a vote still required is not theirs to give), or its pipeline waits
+            // at an approval in Azure DevOps, past what failed before: nothing fails, it waits for you there.
+            let held_now = pipeline.b("approval");
+            let confirmed = if t.at("prFailure").s("remoteKind") == "review" { decision == "APPROVED" } else { passed || held_now };
             if confirmed {
                 t.put("prFailure", Value::Null);
                 if t.s("stage") == "approval" && !t.b("failure") {

@@ -101,7 +101,7 @@ fn a_build_held_at_an_approval_in_azure_devops_needs_you_there() {
     w.az_says(json!({ "head": head, "policies": [policy("Build", "reports", "running", Some(7))], "timeline": { "7": held } }));
     finish_line::approve(&id, None, false).unwrap();
     let t = settle(&id);
-    assert_eq!((t.s("stage"), t.s("msg")), ("merging", "Waiting for your approval in Azure DevOps: the build reports, at Staging"));
+    assert_eq!((t.s("stage"), t.s("msg")), ("merging", "Pipeline reports waits for your approval of stage Staging in Azure DevOps: https://dev.azure.com/acme/Big%20Project/_build/results?buildId=7"));
     assert_eq!(stands(&id).0, "needs you");
-    assert_eq!(sentence(&row(&id)).text(), "Waiting for your approval in Azure DevOps: the build reports, at Staging");
+    assert_eq!(sentence(&row(&id)).text(), "Pipeline reports waits for your approval of stage Staging in Azure DevOps: https://dev.azure.com/acme/Big%20Project/_build/results?buildId=7");
 }
