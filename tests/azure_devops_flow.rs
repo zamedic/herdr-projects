@@ -40,8 +40,8 @@ fn a_task_at_azure_devops_opens_its_pull_request_ready_merges_once_its_policies_
     finish_line::approve(&id, None, false).unwrap();
     let t = settle(&id);
     assert_eq!(t.s("stage"), "merging", "{}", t.at("failure")); assert!(t.b("autoMerge"));
-    assert_eq!(t.s("msg"), "Waiting for Azure DevOps checks · 0 of 1 passed");
-    assert!(!az_log(&w).contains("repos pr update"), "ready already, not made ready again: {}", az_log(&w));
+    assert_eq!(t.s("msg"), "Waiting for Azure DevOps checks · 0 of 1 passed · Approved here and in Azure");
+    assert!(!az_log(&w).contains("repos pr update --id 42 --draft"), "ready already, not made ready again: {}", az_log(&w));
     assert!(w.az.sent.borrow().iter().all(|s| s.s("resource") != "pullRequests"), "not completed while it runs");
     // watched meanwhile: the panel says its votes and policies, `details` the pull request as Azure DevOps has it now
     w.az_says(json!({ "head": reviewed, "reviewers": [{ "displayName": "Ann", "vote": 10 }], "policies": [policy("Build", "CI build", "running", Some(7)), policy("Minimum number of reviewers", "", "approved", None)] }));

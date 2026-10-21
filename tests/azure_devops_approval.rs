@@ -41,7 +41,7 @@ fn a_build_validation_held_at_an_approval_makes_the_merge_wait_for_you_with_no_t
     assert_eq!((t.s("stage"), t.s("msg")), ("merging", "Pipeline reports waits for your approval of stage Staging in Azure DevOps: https://dev.azure.com/acme/Big%20Project/_build/results?buildId=7"), "{}", t.at("failure"));
     assert_eq!(state(&id), ("blocked".to_string(), "permission".to_string()), "it waits for you, not for the machine");
     // the approval is Azure DevOps' to give: the board offers no yes of its own, and its yes says where to give it
-    let answer = format!("{} waits for an approval in Azure DevOps, not for a yes here: approve it there and the board goes on by itself. Pipeline reports waits for your approval of stage Staging in Azure DevOps: https://dev.azure.com/acme/Big%20Project/_build/results?buildId=7", task(&id).s("id"));
+    let answer = format!("{} waits for an approval in Azure DevOps, not for a yes here: approve it there and the board goes on by itself. Pipeline reports waits for your approval of stage Staging in Azure DevOps: https://dev.azure.com/acme/Big%20Project/_build/results?buildId=7. Approved here and in Azure.", task(&id).s("id"));
     assert_eq!(finish_line::approve(&id, None, false).err().map(|e| e.msg), Some(answer.clone()));
     let mut b = common::board::open(&w.root, 44);
     b.s.sel = id.clone(); b.load();
@@ -61,7 +61,7 @@ fn a_build_validation_held_at_an_approval_makes_the_merge_wait_for_you_with_no_t
     w.az_says(json!({ "head": head, "policies": [policy("Build", "reports", "running", Some(7))], "timeline": { "7": going } }));
     poll_prs();
     let t = settle(&id);
-    assert_eq!(t.s("msg"), "Waiting for Azure DevOps checks · 0 of 1 passed");
+    assert_eq!(t.s("msg"), "Waiting for Azure DevOps checks · 0 of 1 passed · Approved here and in Azure");
     assert_eq!(state(&id).0, "working");
     assert!(!sw::land::checks::overdue(&t), "check.timeout counts from your yes, not from when the wait began");
     // it passed: completed

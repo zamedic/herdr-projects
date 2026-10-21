@@ -106,7 +106,7 @@ fn a_pull_request_pipeline_held_at_an_approval_before_your_yes_needs_you_there_a
     assert_eq!((t.s("stage"), t.s("msg")), ("merging", format!("Pipeline reports waits for your approval of stage Staging in Azure DevOps: {RUN}").as_str()));
     w.az_says(json!({ "head": head, "policies": [policy("Build", "reports", "running", Some(8))], "timeline": { "8": approved_timeline() } }));
     poll_prs();
-    assert_eq!(settle(&id).s("msg"), "Waiting for Azure DevOps checks · 0 of 1 passed");
+    assert_eq!(settle(&id).s("msg"), "Waiting for Azure DevOps checks · 0 of 1 passed · Approved here and in Azure");
     w.az_says(json!({ "head": head, "policies": [policy("Build", "reports", "approved", Some(8))] }));
     poll_prs();
     let t = settle(&id);
@@ -143,7 +143,7 @@ fn a_pull_request_build_still_running_past_check_timeout_is_waited_for_and_the_a
     sw::clock::advance(40 * 60000);
     poll_prs();
     let t = settle(&id);
-    assert_eq!((t.s("stage"), t.s("msg")), ("merging", "Waiting for Azure DevOps checks · 0 of 1 passed"), "{}", t.at("failure"));
+    assert_eq!((t.s("stage"), t.s("msg")), ("merging", "Waiting for Azure DevOps checks · 0 of 1 passed · Approved here and in Azure"), "{}", t.at("failure"));
     assert!(t.at("failure").is_null() && t.b("autoMerge"));
     w.az_says(json!({ "head": head, "policies": [policy("Build", "webapp", "approved", Some(8))] }));
     poll_prs();

@@ -227,7 +227,7 @@ pub fn before_merge(id: &str, g: &mut Guard, t: &Task, root: &Path) -> Res<bool>
                     &format!("Look at the pull request's checks on {} ({}): one may be stuck, or wait for a runner. Approve again to wait for them again, or merge without them: herdr-projects approve {id} --anyway.", crate::azure::host_word(&pr), if az { format!("az repos pr policy list --id {}", crate::azure::pr::id_of(&pr)) } else { format!("gh pr checks {}", pr_number(&pr)) }), no_fix())?;
                 return Ok(false);
             }
-            let msg = if !held.is_empty() { held.clone() } else if az { waiting_words_on("Azure DevOps", listed, &checks, &flows) } else { waiting_words(listed, &checks, &flows) };
+            let msg = if !held.is_empty() { held.clone() } else if az { crate::azure::shown::with_vote(waiting_words_on("Azure DevOps", listed, &checks, &flows), t, v.at("waits")) } else { waiting_words(listed, &checks, &flows) };
             let d = g.set(|t| { t.put("failure", Value::Null); t.put("autoMerge", true); t.put("autoMergeLocal", true); let seen = unique(known(t, &head, read.via()).into_iter().chain(listed.iter().map(name))); t.put("checksWait", json!({ "since": since, "head": head, "via": read.via(), "for": approved, "names": checks, "flows": flows, "seen": seen, "approval": if held.is_empty() { Value::Null } else { json!(held) } })); t.put("msg", msg.clone()); })?;
             flow::sidebar::tell_sidebar(&d);
             Ok(false)
@@ -245,11 +245,13 @@ pub fn before_merge(id: &str, g: &mut Guard, t: &Task, root: &Path) -> Res<bool>
                 let mut sent = pf.clone(); sent["sentAt"] = json!(now());
                 let mut patch = obj(off); patch.put("prFailure", sent); patch.put("prRounds", went + 1);
                 flow::send::send_own(id, &format!("{hs} checks failed on the pull request, so this is not merged yet.\n\n{}\n\nFix it on your branch, run the checks and finish again.", bound_detail(&detail)), "checks", true, patch, 0)?;
+                super::vote_azure::withdraw(id); // its repair is not completed by Azure DevOps before it is reviewed
                 return Ok(false);
             }
             // Its rounds are spent: it waits for you, and `approve` says why until `--anyway`.
             let msg = format!("{hs} checks failed: {}. Send the details to the agent, or merge it anyway", names.join(", "));
             let d = g.set(|t| { for (k, v) in obj(off.clone()) { t.insert(k, v); } t.put("prFailure", pf.clone()); t.put("stage", "approval"); t.put("mergeFailed", true); t.put("mergeIntent", Value::Null); t.put("msg", msg.clone()); })?;
+            super::vote_azure::withdraw(id);
             flow::sidebar::tell_sidebar(&d);
             Ok(false)
         }

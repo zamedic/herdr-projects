@@ -1,8 +1,9 @@
 //! What a task shows of its pull request on Azure DevOps: one line for the task panel (its reviewers' votes and its
 //! policies, kept on the task by the pull requests' watch as `prRemote`), and for `details` the pull request as Azure
-//! DevOps says it now, with the main pipeline's runs of its merge commit while the task waits for them; and what a
-//! task held at an approval there waits for: after your yes (it waits for you there alone), or before it (its pull
-//! request's own pipeline held: it needs you, and your yes here is still yours to give).
+//! DevOps says it now, with the main pipeline's runs of its merge commit while the task waits for them; what your yes,
+//! given there too, still waits for; and what a task held at an approval there waits for: after your yes (it waits for
+//! you there alone), or before it (its pull request's own pipeline held: it needs you, and your yes here is still
+//! yours to give).
 use super::{host, pr, runs};
 use crate::json::*;
 use crate::store::repos::folder_of;
@@ -20,9 +21,27 @@ pub fn held_before_yes(t: &Obj) -> Option<String> {
     if t.s("stage") != "approval" || !pr::is_azure(t.s("pr")) { return None; }
     Some(t.at("prPipeline").s("approval")).filter(|s| !s.is_empty()).map(String::from)
 }
-/// What yes says to a task held after it: the approval is Azure DevOps' to give, not the board's.
-pub fn held_answer(id: &str, why: &str) -> String {
-    format!("{id} waits for an approval in Azure DevOps, not for a yes here: approve it there and the board goes on by itself. {why}")
+/// What yes says to a task held after it: the approval is Azure DevOps' to give, not the board's. Your vote on its pull
+/// request was cast with your first yes: what it still waits for from people is said too.
+pub fn held_answer(t: &Obj, why: &str) -> String {
+    let vote = if t.b("azureVote") { format!(". {}.", approved_words(t.at("azureVote"), &strings(t.at("azureVote").at("waits")), "")) } else { String::new() };
+    format!("{} waits for an approval in Azure DevOps, not for a yes here: approve it there and the board goes on by itself. {why}{vote}", t.s("id"))
+}
+/// What the task says once your yes was given in Azure DevOps too (land/vote_azure.rs), while the pull request waits:
+/// `Approved here and in Azure · waits for 1 more reviewer (policy: Minimum number of reviewers)`. `vote`: the task's
+/// `azureVote`; `waits`: what its policies of people still wait for (waits.rs); `pr`: its link, said when nothing is ("": only
+/// the vote is said).
+pub fn approved_words(vote: &Value, waits: &[String], pr: &str) -> String {
+    let given = if vote.b("voted") { "Approved here and in Azure".to_string() } else { format!("Approved here; Azure DevOps did not take your vote ({})", vote.s("said")) };
+    if !waits.is_empty() { return format!("{given} · {}", waits.join(" · ")); }
+    if pr.is_empty() { given } else { format!("{given} · merges when Azure DevOps' policies pass ({pr})") }
+}
+/// A row's words while its checks still run, with your yes given in Azure DevOps too and who still has to vote:
+/// `Waiting for Azure DevOps checks · 0 of 1 passed · Approved here and in Azure · waits for 1 more reviewer (…)`.
+/// `waits`: the pull request's `waits` (pr.rs). As it was for a task with no vote cast.
+pub fn with_vote(msg: String, t: &Obj, waits: &Value) -> String {
+    if !t.b("azureVote") || t.at("azureVote").b("reset") { return msg; }
+    format!("{msg} · {}", approved_words(t.at("azureVote"), &strings(waits), ""))
 }
 /// A reviewer's vote in words.
 pub fn vote(v: i64) -> &'static str { match v { 10 => "approved", 5 => "approved with suggestions", -5 => "waiting for the author", -10 => "rejected", _ => "no vote" } }
@@ -31,14 +50,17 @@ fn result(c: &Value) -> &'static str {
     let w = crate::land::checks::word(c);
     if crate::flow::git::CHECK_BAD.contains(&w.as_str()) { "failed" } else if crate::flow::git::CHECK_GOOD.contains(&w.as_str()) { "passed" } else { "running" }
 }
-/// The panel's line: `Reviewers: Ann approved · Policies: CI build passed`. Empty when there is nothing to say.
+/// The panel's line: `Reviewers: Ann approved, Bob no vote (required) · Policies: CI build passed · Waits for Bob
+/// (policy: Required reviewers)`. Empty when there is nothing to say.
 pub fn summary(v: &Value) -> String {
     let reviewers: Vec<String> = v.arr("reviewers").iter().map(|r| format!("{} {}{}", r.s("name"), vote(r.i("vote")), if r.b("required") { " (required)" } else { "" })).collect();
     let policies: Vec<String> = v.arr("statusCheckRollup").iter().map(|c| format!("{} {}", crate::land::checks::name(c), result(c))).collect();
     let mut parts = vec![];
     if !reviewers.is_empty() { parts.push(format!("Reviewers: {}", reviewers.join(", "))); }
     if !policies.is_empty() { parts.push(format!("Policies: {}", policies.join(", "))); }
-    if v.s("reviewDecision") == "REVIEW_REQUIRED" { parts.push("a review is still required".into()); }
+    // Who still has to vote, by policy; else only that someone does.
+    if !v.arr("waits").is_empty() { parts.extend(strings(v.at("waits")).into_iter().map(|w| w.replacen("waits for", "Waits for", 1))); }
+    else if v.s("reviewDecision") == "REVIEW_REQUIRED" { parts.push("a review is still required".into()); }
     parts.join(" · ")
 }
 /// For `details`: its pull request on Azure DevOps (status, draft, reviewers, policies, what its own pipeline says)
@@ -48,10 +70,11 @@ pub fn details(t: &Obj) -> Option<Value> {
     if !pr::is_azure(t.s("pr")) { return None; }
     let root = folder_of(t.s("id"));
     let a = host(&root)?;
-    let mut out = obj(json!({ "pr": t.at("pr"), "summary": t.at("prRemote"), "prPipeline": t.at("prPipeline").at("words") }));
+    let mut out = obj(json!({ "pr": t.at("pr"), "summary": t.at("prRemote"), "prPipeline": t.at("prPipeline").at("words"), "vote": t.at("azureVote") }));
     match pr::view(&a, &root, t.s("pr"), "statusCheckRollup") {
         Ok(v) => { out.put("status", v.at("state").clone()); out.put("draft", v.at("isDraft").clone()); out.put("reviewDecision", v.at("reviewDecision").clone()); out.put("reviewers", v.at("reviewers").clone());
-            out.put("policies", v.arr("statusCheckRollup").iter().map(|c| json!({ "name": crate::land::checks::name(c), "result": result(c), "url": c.at("detailsUrl") })).collect::<Vec<_>>()); out.put("summary", summary(&v));
+            out.put("policies", v.arr("statusCheckRollup").iter().map(|c| json!({ "name": crate::land::checks::name(c), "result": result(c), "url": c.at("detailsUrl") })).collect::<Vec<_>>()); out.put("summary", summary(&v)); out.put("waits", v.at("waits").clone());
+            if t.b("azureVote") && t.s("stage") == "merging" { out.put("approved", approved_words(t.at("azureVote"), &strings(v.at("waits")), "")); }
             // Open, its own pipeline as it is now (the build validation, a deployment to staging): what the row says.
             if v.s("state") == "OPEN" { let p = super::pr_pipeline::look(&a, &root, v.arr("statusCheckRollup"), t.at("prPipeline")); out.put("prPipeline", p.at("words").clone()); } }
         Err(e) => out.put("unread", e),

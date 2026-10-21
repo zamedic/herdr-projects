@@ -40,7 +40,7 @@ fn on_azure_devops_it_opens_ready_and_the_yes_only_completes_it() {
     finish_line::approve(&id, None, false).unwrap();
     let t = settle(&id);
     assert_eq!(t.s("stage"), "done", "{} {}", t.s("msg"), t.at("failure"));
-    assert!(!az_log(&w).contains("repos pr update"), "never undrafted: {}", az_log(&w));
+    assert!(!az_log(&w).contains("repos pr update --id 42 --draft"), "never undrafted: {}", az_log(&w));
     let sent = w.az.sent.borrow().iter().find(|s| s.s("resource") == "pullRequests").cloned().unwrap_or(Value::Null);
     assert_eq!(sent.at("body").s("status"), "completed", "{sent}");
 }

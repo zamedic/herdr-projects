@@ -141,8 +141,10 @@ it merges:
 - **or locally**, squashed by default.
 
 A repo whose origin is at Azure DevOps has its pull request there, opened, merged and watched the same way through the
-Azure CLI, and its task is done only once the base branch's pipeline passed for the merge commit:
-[Azure DevOps](azure-devops.md). A run there that stops at an approval before a stage (an environment's check, read
+Azure CLI, and its task is done only once the base branch's pipeline passed for the merge commit. Your yes is given
+there too: your Approve vote on the pull request, and its auto-complete, so Azure DevOps completes it the moment its
+policies are met; the row says who else still has to vote (`Approved here and in Azure · waits for 1 more reviewer
+(policy: Minimum number of reviewers)`): [Azure DevOps](azure-devops.md#your-yes-in-azure-devops). A run there that stops at an approval before a stage (an environment's check, read
 from the run's timeline) waits for you, never counts as failed or as running, and nothing goes to the agent for it:
 before your yes the task needs you, its row saying `Pull request open · waits for your approval of stage Staging in
 Azure DevOps` and its panel which run (with its URL), its approval question kept and your yes still possible; after

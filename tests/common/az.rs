@@ -11,7 +11,8 @@ use sw::json::*;
 /// `draft` (it is a draft), `status` (`active`, `completed`, `abandoned`; completed once the board completed it,
 /// unless `completeQueued`), `mergeStatus` (Azure DevOps' merge of an accepted completion: `queued`, `conflicts`, …),
 /// `reviewers`, `policies`
-/// (each evaluation as az gives it), `prs` (`repos pr list`), `createFail`, `completeFail`, `noLogin`, `threads`,
+/// (each evaluation as az gives it), `prs` (`repos pr list`), `createFail`, `completeFail`, `voteFail` (`repos pr
+/// set-vote`), `autoFail` (`repos pr update --auto-complete`), `noLogin`, `threads`,
 /// `runs` (`pipelines runs list`), `pipelines` (`pipelines list`; one by default), `timeline` (by build id), `log`
 /// (a build log's lines).
 #[derive(Default)]
@@ -53,7 +54,9 @@ impl FakeAz {
             ("repos", "pr", "create") => if c.b("createFail") { fail(c.s("createFail")) } else { ok(self.pr(&c)) },
             ("repos", "pr", "list") => ok(if c.at("prs").is_array() { c.at("prs").clone() } else { json!([]) }),
             ("repos", "pr", "show") => ok(self.pr(&c)),
+            ("repos", "pr", "update") if has("--auto-complete") && c.b("autoFail") => fail(c.s("autoFail")),
             ("repos", "pr", "update") => ok(self.pr(&c)),
+            ("repos", "pr", "set-vote") => if c.b("voteFail") { fail(c.s("voteFail")) } else { ok(json!({ "vote": 10 })) },
             ("repos", "pr", "policy") => ok(if c.at("policies").is_array() { c.at("policies").clone() } else { json!([]) }),
             ("pipelines", "runs", "list") => ok(if c.at("runs").is_array() { c.at("runs").clone() } else { json!([]) }),
             ("pipelines", "list", _) => ok(if c.at("pipelines").is_array() { c.at("pipelines").clone() } else { json!([{ "id": 1, "name": "CI" }]) }),

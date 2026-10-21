@@ -49,6 +49,7 @@ login is said: `Could not open the pull request`, with what az said and what to 
   is named on the completion, whatever one the pull request already had (an auto-complete set in Azure DevOps). It is
   Azure DevOps' REST call through `az rest` (`az repos pr update` can say neither the strategy nor the commit), so it
   needs `az login`: a token from `az devops login` alone does not do for it.
+- **Your yes in Azure DevOps too**: see [below](#your-yes-in-azure-devops).
 - **Completion accepted, not carried out**: Azure DevOps may accept the completion and still be merging it. The task
   waits, watching the pull request's merge status: a conflict, a policy that rejects the merge or a failed merge sends
   it back to you with the reason (a conflict is the agent's to fix), and a pull request still active after
@@ -60,6 +61,46 @@ login is said: `Could not open the pull request`, with what az said and what to 
   review comment is a thread closed at once, so it never holds up a policy of resolved comments.
 
 The pull requests are looked at on the same cadence as GitHub's, every two minutes.
+
+## Your yes in Azure DevOps
+
+Approving a task (`approve <id>`, or yes on the board) whose pull request is at Azure DevOps gives that yes there as
+well, at once, before its policies are looked at, so also while its build still runs:
+
+- **Your vote**: the Approve vote of the user `az` is logged in as (`az repos pr set-vote --id <pr> --vote approve`).
+- **Its auto-complete**: set by `merge.method` with its source branch deleted and the board's commit message (`az repos
+  pr update --auto-complete true --squash true|false --delete-source-branch true --merge-commit-message …`), so Azure
+  DevOps completes it the moment its policies are met. Azure DevOps' auto-complete completes whatever was pushed last,
+  never only the reviewed commit, so it is set only where a push cannot be completed before the board looks again: the
+  pull request has a blocking build validation (a new commit needs a new build) or a blocking policy of reviewers that
+  resets the votes on a push. Elsewhere (only a number of reviewers whose votes stay) no auto-complete is set
+  (`azure.vote.autoSkipped` says so) and the board completes it at the reviewed commit. az cannot set a rebase either:
+  with `merge.method: rebase` the board completes it itself, as it does whenever the auto-complete could not be set.
+- **The board's own completion stays**: once its policies pass the board completes it at the reviewed commit, as
+  before; completed by Azure DevOps first, the task is taken for merged and goes on to the main pipeline.
+
+A task that merges by itself (`merge.by itself`) gives them the same way when the board takes it to the merge. Both
+are given once per approval and reviewed commit (`azureVote` on the task, in `details` as `azure.vote`). A vote
+Azure DevOps refused is said, with its words: `Approved here; Azure DevOps did not take your vote (TF401289: …)`. The
+auto-complete is called off (`--auto-complete false`) and your vote taken back (`set-vote --vote reset`) as soon as
+that approval no longer stands: the merge failed, its checks failed and went back to the agent, the task is no longer
+merging, or someone pushed to the pull request a commit that was not reviewed here. Your next yes gives both again.
+
+When your vote cannot meet a policy of people by itself, the row, `details` (`azure.approved`, `azure.waits`) and the
+panel say what it still waits for, with the policy's name and who still has to vote, and the row follows each vote;
+while its build still runs the row says it after the checks (`Waiting for Azure DevOps checks · 0 of 1 passed ·
+Approved here and in Azure · waits for 1 more reviewer (…)`):
+
+- `Approved here and in Azure · waits for 1 more reviewer: Bob (policy: Minimum number of reviewers)`
+- `… · waits for 1 more reviewer (policy: Minimum number of reviewers; the creator's own vote does not count)`: you
+  opened the pull request, and the policy does not let the creator approve their own changes
+- `… · waits for Shop Team (policy: Required reviewers)`
+- `… · waits for its comments to be resolved (policy: Comment requirements)`, `… · waits for a linked work item`
+
+The panel's `Azure` line lists the pull request's reviewers with their votes, the required ones (those a policy adds)
+marked so: `Reviewers: Me approved, Shop Team no vote (required) · Waits for Shop Team (policy: Required reviewers)`.
+A yes to a task held at an approval only Azure DevOps can give (a build at its environment's check) says where to give
+it, and what your vote, given already, still waits for.
 
 ## Where it stands while it waits for your yes
 
@@ -92,7 +133,7 @@ compacted its conversation) leaves it where it was: never "stopped without a sum
 | a status check still running, or none started | waits, at most `check.timeout` |
 | a build validation held at an approval (its environment's check in Azure Pipelines) | waits for you, with no timeout: `Pipeline reports waits for your approval of stage Staging in Azure DevOps: <run>`. Once you approve it there, it waits for the build again |
 | one that failed | merges nothing; the failure goes back to the agent with the policy's name, the failing job and step, and the end of its log, within `review.rounds`, then waits for you (`approve <id> --anyway` merges all the same) |
-| a policy of people not met (reviewers, required reviewers, resolved comments, linked work items) | waits for it, as a review still required on GitHub; a reviewer who rejects, or waits for the author, is a change asked for |
+| a policy of people not met (reviewers, required reviewers, resolved comments, linked work items) | waits for it, as a review still required on GitHub, saying who still has to vote ([your yes in Azure DevOps](#your-yes-in-azure-devops)); a reviewer who rejects, or waits for the author, is a change asked for |
 | one that is not blocking | never holds the merge up |
 
 `merge.checks: none` does not look at them.

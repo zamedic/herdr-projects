@@ -75,16 +75,20 @@ fn comments(a: &Azure, cwd: &Path, pr: &str) -> Vec<Value> {
 }
 /// The pull request as `gh pr view --json <fields>` gives it: with its checks when `fields` asks for
 /// `statusCheckRollup` (its policies: policies.rs, which also decide `reviewDecision`), and the comments when it asks
-/// for `comments`. Err: what az said.
+/// for `comments`, and `waits`: what its policies of people still wait for. Err: what az said.
 pub fn view(a: &Azure, cwd: &Path, pr: &str, fields: &str) -> Result<Value, String> {
     let p = show(a, cwd, pr)?;
     let mut v = shaped(a, &p);
     let wants = |f: &str| fields.split(',').any(|x| x == f);
     if wants("statusCheckRollup") || wants("reviewDecision") {
         // Merged or abandoned: its policies are not asked for.
-        let (checks, required) = if v.s("state") == "OPEN" { policies::read(a, cwd, pr)? } else { (vec![], false) };
+        let evaluations = if v.s("state") == "OPEN" { policies::list(a, cwd, pr)? } else { vec![] };
+        let (checks, required) = policies::rollup(a, &evaluations);
         v["statusCheckRollup"] = json!(checks);
         v["reviewDecision"] = json!(decision(p.arr("reviewers"), required));
+        // Who still has to vote, by policy, in words (waits.rs).
+        let me = if required { super::cli::user(cwd) } else { String::new() };
+        v["waits"] = json!(super::waits::of(&evaluations, p.arr("reviewers"), p.at("createdBy").s("uniqueName"), &me));
     }
     v["comments"] = json!(if wants("comments") && v.s("state") == "OPEN" { comments(a, cwd, pr) } else { vec![] });
     v["reviews"] = json!([]);
