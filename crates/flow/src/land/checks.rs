@@ -241,11 +241,13 @@ pub fn before_merge(id: &str, g: &mut Guard, t: &Task, root: &Path) -> Res<bool>
                 let mut sent = pf.clone(); sent["sentAt"] = json!(now());
                 let mut patch = obj(off); patch.put("prFailure", sent); patch.put("prRounds", went + 1);
                 flow::send::send_own(id, &format!("{hs} checks failed on the pull request, so this is not merged yet.\n\n{}\n\nFix it on your branch, run the checks and finish again.", bound_detail(&detail)), "checks", true, patch, 0)?;
+                super::vote_azure::withdraw(id); // its repair is not completed by Azure DevOps before it is reviewed
                 return Ok(false);
             }
             // Its rounds are spent: it waits for you, and `approve` says why until `--anyway`.
             let msg = format!("{hs} checks failed: {}. Send the details to the agent, or merge it anyway", names.join(", "));
             let d = g.set(|t| { for (k, v) in obj(off.clone()) { t.insert(k, v); } t.put("prFailure", pf.clone()); t.put("stage", "approval"); t.put("mergeFailed", true); t.put("mergeIntent", Value::Null); t.put("msg", msg.clone()); })?;
+            super::vote_azure::withdraw(id);
             flow::sidebar::tell_sidebar(&d);
             Ok(false)
         }

@@ -60,8 +60,10 @@ pub fn rollup(a: &Azure, evaluations: &[Value]) -> (Vec<Value>, bool) {
     }
     (checks, people)
 }
-/// The pull request's policies, read. Err: what az said.
-pub fn read(a: &Azure, cwd: &Path, pr: &str) -> Result<(Vec<Value>, bool), String> {
+/// The pull request's policies' evaluations, as az gives them. Err: what az said.
+pub fn list(a: &Azure, cwd: &Path, pr: &str) -> Result<Vec<Value>, String> {
     let v = json_of(a, cwd, &["repos", "pr", "policy", "list", "--id", &super::pr::id_of(pr)], 60000)?;
-    Ok(rollup(a, v.as_array().map(|l| l.as_slice()).unwrap_or(&[])))
+    Ok(v.as_array().cloned().unwrap_or_default())
 }
+/// The pull request's policies, read. Err: what az said.
+pub fn read(a: &Azure, cwd: &Path, pr: &str) -> Result<(Vec<Value>, bool), String> { Ok(rollup(a, &list(a, cwd, pr)?)) }

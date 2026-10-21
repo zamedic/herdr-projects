@@ -1,6 +1,7 @@
 //! The merge through a pull request on Azure DevOps, as merge.rs does it through GitHub's: at the reviewed commit only,
-//! made ready if it is a draft (`merge.draft`), its policies passed (checks.rs, `merge.checks`), then completed by `merge.method` (squash, merge with
-//! no fast-forward, rebase) with its source branch deleted. Completed, it waits for the base branch's pipeline when
+//! made ready if it is a draft (`merge.draft`), your vote cast there and its auto-complete set (vote_azure.rs), its
+//! policies passed (checks.rs, `merge.checks`), then completed by `merge.method` (squash, merge with no fast-forward,
+//! rebase) with its source branch deleted. Completed, it waits for the base branch's pipeline when
 //! `merge.pipeline` asks for it (main_pipeline.rs), else it is done.
 use super::merge::{fail, landed, Fail};
 use crate::azure::{pr, Azure};
@@ -35,9 +36,11 @@ pub fn through_pr(id: &str, g: &mut Guard, t: &Task, root: &Path, how: &str, a: 
     // Opened ready for review (`merge.draft`), its pipeline has run since: only a draft is made ready, and az not asked
     // to change what is fine. Not read: made ready, as before.
     if pr::view(a, root, &pr, "isDraft").map(|v| v.b("isDraft")).unwrap_or(true) { pr::ready(a, root, &pr); }
+    let message = format!("{}\n\nTask: {}", if t.b("title") { t.t("title") } else { id.to_string() }, task_ref(id, &repo_keys()));
+    // Your yes in Azure DevOps too, before its policies are looked at: the vote, and its auto-complete (vote_azure.rs).
+    let t = &super::vote_azure::give(g, t, root, a, &pr, how, &message)?;
     // Its policies (`merge.checks`): still running it waits, failed it goes back (checks.rs).
     if !super::checks::before_merge(id, g, t, root)? { return Ok(()); }
-    let message = format!("{}\n\nTask: {}", if t.b("title") { t.t("title") } else { id.to_string() }, task_ref(id, &repo_keys()));
     let m = pr::complete(a, root, &pr, &reviewed, how, &message);
     if m.status != 0 {
         // Its policies are still running, or a reviewer's vote is missing: the approval is remembered.
@@ -45,7 +48,9 @@ pub fn through_pr(id: &str, g: &mut Guard, t: &Task, root: &Path, how: &str, a: 
         if v.s("state") != "MERGED" {
             let states: Vec<String> = v.arr("statusCheckRollup").iter().map(super::checks::word).collect();
             let waiting = !states.iter().any(|s| CHECK_BAD.contains(&s.as_str())) && v.s("reviewDecision") != "CHANGES_REQUESTED" && (states.iter().any(|s| !CHECK_GOOD.contains(&s.as_str())) || v.s("reviewDecision") == "REVIEW_REQUIRED");
-            if waiting { g.set(|t| { t.put("failure", Value::Null); t.put("autoMerge", true); t.put("autoMergeLocal", true); let m = format!("Approved: merges when Azure DevOps' policies pass ({})", t.s("pr")); t.put("msg", m); })?; return Ok(()); }
+            // Said with who still has to vote, by policy: Azure DevOps' auto-complete, or the board on its next look, completes it then.
+            let waits = v.at("waits").clone();
+            if waiting { g.set(|t| { t.put("failure", Value::Null); t.put("autoMerge", true); t.put("autoMergeLocal", true); if t.b("azureVote") { t.obj_mut("azureVote").put("waits", waits.clone()); } let m = crate::azure::shown::approved_words(t.at("azureVote"), &strings(&waits), t.s("pr")); t.put("msg", m); })?; return Ok(()); }
             return fail(g, "Pull request could not complete", &format!("Pull request: {pr}\nBranch: {branch}\n\nAzure DevOps (completing the pull request):\n{}\n\nNo policy is still running and no reviewer is awaited, so there is nothing to wait for.", m.stderr.trim()),
                 "Inspect the pull request in Azure DevOps: its target branch, conflicts and policies. Resolve branch conflicts in your own worktree, or fix failed checks, then finish again. Approval is required before retrying the merge.", Fail::default());
         }

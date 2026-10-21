@@ -43,6 +43,7 @@ mod azure_devops_draft;
 mod azure_devops_flow;
 mod azure_devops_gate;
 mod azure_devops_ready;
+mod azure_devops_vote;
 mod board_actions;
 mod board_actions_rest;
 mod board_ask_bottom;

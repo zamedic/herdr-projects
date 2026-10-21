@@ -3,7 +3,7 @@
 //! Azure CLI (`az` with its azure-devops extension), as gh is used for GitHub. Each part is read into the shape gh gives
 //! (`pr view --json …`), so the board's own rules (land/, housekeeping/prs.rs) read both hosts the same way. One part
 //! per file in azure/: the origin's URL, the `az` program, the pull request, its policies, its own pipeline, a build's
-//! log and the main pipeline's runs, and what a task shows of them. More: docs/azure-devops.md.
+//! log and the main pipeline's runs, your vote on it and who else still has to vote, and what a task shows of them. More: docs/azure-devops.md.
 pub mod cli;
 pub mod logs;
 pub mod policies;
@@ -12,6 +12,8 @@ pub mod pr_pipeline;
 pub mod runs;
 pub mod shown;
 pub mod url;
+pub mod vote;
+pub mod waits;
 pub use url::{host, parse, Azure};
 
 /// The host's name, as a message says it: "Azure DevOps" for a pull request there, else "GitHub".

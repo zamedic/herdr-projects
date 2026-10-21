@@ -29,7 +29,7 @@ fn a_completion_refused_while_a_reviewer_is_awaited_waits_and_completes_once_the
     let t = task(&id);
     assert_eq!(t.s("stage"), "merging", "{}", t.at("failure"));
     assert!(t.b("autoMerge") && t.b("autoMergeLocal") && !t.b("failure"), "{}", t.s("msg"));
-    assert!(t.s("msg").starts_with("Approved: merges when Azure DevOps' policies pass"), "{}", t.s("msg"));
+    assert_eq!(t.s("msg"), "Approved here and in Azure · waits for 1 more reviewer (policy: Minimum number of reviewers)");
     assert_eq!(completions(&w), 1);
     // the vote is there: completed at the reviewed commit
     w.az_says(json!({ "head": reviewed, "policies": [policy("Minimum number of reviewers", "", "approved", None)] }));

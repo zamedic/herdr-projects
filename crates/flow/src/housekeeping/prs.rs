@@ -73,6 +73,9 @@ fn poll_one(id: &str, pr: &str, j: &Value, via: &str) {
     let held = if was.as_ref().map(|w| w.b("autoMerge") && w.b("checksWait")).unwrap_or(false) && failed.is_empty() && crate::azure::pr::is_azure(pr) { checks::held_builds(&root, &checks) } else { String::new() };
     // Its own pipeline on Azure DevOps (a build validation, a deployment to staging), for the row: azure/pr_pipeline.rs.
     let pipeline = match crate::azure::host(&root).filter(|_| crate::azure::pr::is_azure(pr) && j.s("state") == "OPEN") { Some(a) => crate::azure::pr_pipeline::look(&a, &root, &checks, was.as_ref().map(|w| w.at("prPipeline")).unwrap_or(&Value::Null)), None => Value::Null };
+    // An auto-complete set in Azure DevOps for an approval that no longer stands is called off (land/vote_azure.rs); a
+    // late answer naming the commit before the board's own push is not taken for a push.
+    if j.s("state") == "OPEN" && was.as_ref().map(|w| crate::land::vote_azure::stale(w, if late_for.is_empty() { &head } else { "" })).unwrap_or(false) { crate::land::vote_azure::withdraw(id); }
     let res = update_wait(id, 10000, |t| {
         if t.b("archivedAt") || t.s("pr") != pr || runner_alive(t) { return Ok(Change::Keep); } // archived or active since the request started: next poll
         if j.s("state") == "MERGED" {
@@ -172,6 +175,8 @@ fn poll_one(id: &str, pr: &str, j: &Value, via: &str) {
         if t.b("autoMerge") && !blocking && !t.b("prFailure") {
             // The checks have passed (and a required review is there): the remembered merge is carried out now.
             if t.b("autoMergeLocal") && all_good && decision != "REVIEW_REQUIRED" { t.put("autoMerge", false); t.put("autoMergeLocal", false); t.put("msg", "Merging"); then = Then::Land; }
+            // Your yes given in Azure DevOps too: who still has to vote, as it is now.
+            else if t.b("autoMergeLocal") && t.b("azureVote") { t.obj_mut("azureVote").put("waits", j.at("waits").clone()); let m = crate::azure::shown::approved_words(t.at("azureVote"), &strings(j.at("waits")), pr); t.put("msg", m); }
             return Ok(Change::Write);
         }
         let passed = !checks.is_empty() && all_good;

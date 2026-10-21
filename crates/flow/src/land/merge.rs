@@ -39,6 +39,8 @@ pub(super) fn fail(g: &mut Guard, title: &str, detail: &str, next: &str, f: Fail
         if !f.keep_intent { t.put("mergeIntent", Value::Null); }
         for (k, v) in failure_patch(&obj(json!({ "stage": "merge", "title": title, "detail": detail, "next": next, "agentCanFix": f.agent_can_fix, "auth": auth }))) { t.insert(k, v); }
     })?;
+    // An auto-complete set in Azure DevOps for this merge no longer stands for anything (vote_azure.rs).
+    super::vote_azure::withdraw(t.s("id"));
     flow::sidebar::tell_sidebar(&t);
     Ok(())
 }
