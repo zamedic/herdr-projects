@@ -36,6 +36,13 @@ pub fn approved_words(vote: &Value, waits: &[String], pr: &str) -> String {
     if !waits.is_empty() { return format!("{given} · {}", waits.join(" · ")); }
     if pr.is_empty() { given } else { format!("{given} · merges when Azure DevOps' policies pass ({pr})") }
 }
+/// A row's words while its checks still run, with your yes given in Azure DevOps too and who still has to vote:
+/// `Waiting for Azure DevOps checks · 0 of 1 passed · Approved here and in Azure · waits for 1 more reviewer (…)`.
+/// `waits`: the pull request's `waits` (pr.rs). As it was for a task with no vote cast.
+pub fn with_vote(msg: String, t: &Obj, waits: &Value) -> String {
+    if !t.b("azureVote") || t.at("azureVote").b("reset") { return msg; }
+    format!("{msg} · {}", approved_words(t.at("azureVote"), &strings(waits), ""))
+}
 /// A reviewer's vote in words.
 pub fn vote(v: i64) -> &'static str { match v { 10 => "approved", 5 => "approved with suggestions", -5 => "waiting for the author", -10 => "rejected", _ => "no vote" } }
 /// A check's result in words: passed, failed, running.

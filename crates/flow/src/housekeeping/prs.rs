@@ -167,6 +167,7 @@ fn poll_one(id: &str, pr: &str, j: &Value, via: &str) {
                 let seen = checks::unique(was.into_iter().chain(checks.iter().map(checks::name)));
                 t.obj_mut("checksWait").put("names", json!(names)); t.obj_mut("checksWait").put("seen", json!(seen)); t.obj_mut("checksWait").put("via", via);
                 let msg = checks::waiting_words_on(crate::azure::host_word(pr), &checks, &names, &strings(t.at("checksWait").at("flows"))); // the workflows not through, by name
+                let msg = if crate::azure::pr::is_azure(pr) { crate::azure::shown::with_vote(msg, t, j.at("waits")) } else { msg }; // your vote there, and who still has to vote
                 t.put("msg", if held.is_empty() { msg } else { held.clone() });
                 t.obj_mut("checksWait").put("approval", if held.is_empty() { Value::Null } else { json!(held) });
             }

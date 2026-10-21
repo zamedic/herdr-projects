@@ -61,7 +61,7 @@ fn a_build_validation_held_at_an_approval_makes_the_merge_wait_for_you_with_no_t
     w.az_says(json!({ "head": head, "policies": [policy("Build", "reports", "running", Some(7))], "timeline": { "7": going } }));
     poll_prs();
     let t = settle(&id);
-    assert_eq!(t.s("msg"), "Waiting for Azure DevOps checks · 0 of 1 passed");
+    assert_eq!(t.s("msg"), "Waiting for Azure DevOps checks · 0 of 1 passed · Approved here and in Azure");
     assert_eq!(state(&id).0, "working");
     assert!(!sw::land::checks::overdue(&t), "check.timeout counts from your yes, not from when the wait began");
     // it passed: completed

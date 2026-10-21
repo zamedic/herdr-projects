@@ -70,19 +70,26 @@ well, at once, before its policies are looked at, so also while its build still 
 - **Your vote**: the Approve vote of the user `az` is logged in as (`az repos pr set-vote --id <pr> --vote approve`).
 - **Its auto-complete**: set by `merge.method` with its source branch deleted and the board's commit message (`az repos
   pr update --auto-complete true --squash true|false --delete-source-branch true --merge-commit-message …`), so Azure
-  DevOps completes it the moment its policies are met. az cannot set a rebase: with `merge.method: rebase` the board
-  completes it itself, as it does whenever the auto-complete could not be set.
+  DevOps completes it the moment its policies are met. Azure DevOps' auto-complete completes whatever was pushed last,
+  never only the reviewed commit, so it is set only where a push cannot be completed before the board looks again: the
+  pull request has a blocking build validation (a new commit needs a new build) or a blocking policy of reviewers that
+  resets the votes on a push. Elsewhere (only a number of reviewers whose votes stay) no auto-complete is set
+  (`azure.vote.autoSkipped` says so) and the board completes it at the reviewed commit. az cannot set a rebase either:
+  with `merge.method: rebase` the board completes it itself, as it does whenever the auto-complete could not be set.
 - **The board's own completion stays**: once its policies pass the board completes it at the reviewed commit, as
   before; completed by Azure DevOps first, the task is taken for merged and goes on to the main pipeline.
 
 A task that merges by itself (`merge.by itself`) gives them the same way when the board takes it to the merge. Both
 are given once per approval and reviewed commit (`azureVote` on the task, in `details` as `azure.vote`). A vote
 Azure DevOps refused is said, with its words: `Approved here; Azure DevOps did not take your vote (TF401289: …)`. The
-auto-complete is called off (`--auto-complete false`) as soon as that approval no longer stands: the merge failed, its
-checks failed and went back to the agent, or someone pushed to the pull request a commit that was not reviewed here.
+auto-complete is called off (`--auto-complete false`) and your vote taken back (`set-vote --vote reset`) as soon as
+that approval no longer stands: the merge failed, its checks failed and went back to the agent, the task is no longer
+merging, or someone pushed to the pull request a commit that was not reviewed here. Your next yes gives both again.
 
 When your vote cannot meet a policy of people by itself, the row, `details` (`azure.approved`, `azure.waits`) and the
-panel say what it still waits for, with the policy's name and who still has to vote, and the row follows each vote:
+panel say what it still waits for, with the policy's name and who still has to vote, and the row follows each vote;
+while its build still runs the row says it after the checks (`Waiting for Azure DevOps checks · 0 of 1 passed ·
+Approved here and in Azure · waits for 1 more reviewer (…)`):
 
 - `Approved here and in Azure · waits for 1 more reviewer: Bob (policy: Minimum number of reviewers)`
 - `… · waits for 1 more reviewer (policy: Minimum number of reviewers; the creator's own vote does not count)`: you
