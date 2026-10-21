@@ -17,6 +17,8 @@ pub enum Job {
     Stop { id: String, said: String },
     Pin { id: String, name: String, key: String },
     Archive { id: String, said: String }, Restore { id: String, said: String },
+    /// Every done task of this machine's repo `repo`, in one go; `said` follows what it says it did.
+    ArchiveDone { repo: String, said: String },
     Clear { id: String, name: String },
     Pick { id: String, letter: String },
     /// What you typed, for this machine's Coordinator; with no Coordinator, a task (or words added to one's description).
@@ -29,6 +31,8 @@ pub enum Job {
     /// One of the exact actions, on a task or an automation of another machine.
     Far { machine: crate::remote::Machine, host: String, action: String, req: Value, quiet: bool },
     AutoTurn { id: String, on: bool }, AutoFire { id: String }, AutoRemove { id: String, name: String },
+    /// A coordinator of this machine (`to`, as the coordinator code names its level) on autopilot, or off (autopilot/).
+    Pilot { to: String, on: bool },
     /// A setting of a task, an automation, yours or your entry for a repo (`whose`): a value, or none to put it back.
     Set { id: String, name: String, value: Option<String>, whose: super::state::Whose },
     CoordSeen { unseen: String, to: String },
@@ -154,6 +158,7 @@ fn run_one(job: Job) -> Done {
             Job::Stop { id, said } => { talk::stop(&id)?; Done::say(said, Ink::Yellow) }
             Job::Pin { id, name, key } => { let t = filing::pin(&id)?; Done::say(if t.b("pinned") { format!("Pinned {name} to the top. {key} unpins it.") } else { format!("Unpinned {name}.") }, Ink::Muted) }
             Job::Archive { id, said } => { archive::archive(&id)?; Done::say(said, Ink::Green).and(Then::Archived(id)) }
+            Job::ArchiveDone { repo, said } => { let r = crate::actions::archive_done::archive_done(Some(&repo))?; Done::say(format!("{}{said}", r.said), if r.failed.is_empty() { Ink::Green } else { Ink::Yellow }) }
             Job::Restore { id, said } => { archive::restore(&id)?; Done::say(said, Ink::Green).and(Then::Left(id)) }
             Job::Clear { id, name } => {
                 let (_, kept) = archive::clear(&id)?;
@@ -178,6 +183,10 @@ fn run_one(job: Job) -> Done {
             Job::Far { machine, host, action, req, quiet } => super::job_far::far(&machine, &host, &action, req, quiet),
             Job::AutoTurn { id, on } => { let (w, ink) = crate::automations::show::turned_words(&crate::automations::list::turn(&id, on)?); Done::say(w, ink) }
             Job::AutoFire { id } => { let a = crate::automations::list::find(&id)?; let f = crate::automations::fire::fire(&id, crate::automations::told::Cause::Run, crate::clock::now())?; let (w, ink) = crate::automations::show::fired_words(&a, &f); Done::say(w, ink) }
+            Job::Pilot { to, on } => {
+                let co = crate::coordinator::co::Co::of(&crate::herdr::cli::current_socket(), &to);
+                if on { green(crate::autopilot::switch::on(&co, None, &[])?) } else { Done::say(crate::autopilot::switch::off(&co)?, Ink::Yellow) }
+            }
             Job::AutoRemove { id, name } => { crate::automations::list::remove(&id)?; Done::say(format!("Removed the automation \"{name}\"."), Ink::Muted).and(Then::AutoGone) }
             Job::Set { id, name, value, whose } => super::job_far::set(&id, &name, value, &whose)?,
             Job::CoordSeen { unseen, to } => { crate::coordinator::requests::seen(&unseen, crate::coordinator::co::Co::of(&crate::herdr::cli::current_socket(), &to)); Done::default() }

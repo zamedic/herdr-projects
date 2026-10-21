@@ -44,6 +44,8 @@ fn a_repos_coordinator_is_drawn_in_the_brighter_grey_and_a_machines_in_its_headi
     w.add("Fix the login");
     w.script(json!({ "coordinator": [{ "said": "Proj has one task open." }] }));
     let host = sw::remote::check::hostname();
+    // as much of its name as its heading always has room for: a long one (GitHub's macOS runners') is cut there
+    let head: String = host.chars().take(24).collect();
     for (name, light) in [("catppuccin", false), ("catppuccin-latte", true)] { // dark and light
         let mut s = open(&w.root, 34);
         s.theme = theme(name);
@@ -54,8 +56,10 @@ fn a_repos_coordinator_is_drawn_in_the_brighter_grey_and_a_machines_in_its_headi
         assert_eq!(inks_on(&s.inked(100), "talk to the proj coordinator", "proj coordinator"), vec![(REPO_INK, false)]);
         s.press(&["space"]);
         assert_eq!(box_ink(&s.s, None), REPO_INK);
-        assert_eq!(inks_on(&s.inked(100), "proj coordinator  not started", "proj coordinator"), vec![(REPO_INK, true)]); // the name, bold
-        assert_eq!(inks(&s.inked(100), "not started"), vec![(Ink::Muted, false)]);
+        // (the second time round it has run: the board reads the selected heading's coordinator before space)
+        let state = if light { "idle" } else { "not started" };
+        assert_eq!(inks_on(&s.inked(100), &format!("proj coordinator  {state}"), "proj coordinator"), vec![(REPO_INK, true)]); // the name, bold
+        assert_eq!(inks_on(&s.inked(100), "proj coordinator  ", state), vec![(Ink::Muted, false)]);
         all(&mut s, "❯", Ink::Text, false); // the prompt: the Coordinator's
         if !light {
             s.typed("what is open here?");
@@ -74,7 +78,7 @@ fn a_repos_coordinator_is_drawn_in_the_brighter_grey_and_a_machines_in_its_headi
         update(&mut s.s, Event::Machines(sw::remote::machines()));
         if s.s.scope != "*" { s.press(&["alt+m"]); }
         s.s.sel = machine_id(""); s.load();
-        assert_eq!(inks_on(&s.inked(100), "▾", &host), vec![(MACHINE_INK, true)]);
+        assert_eq!(inks_on(&s.inked(100), "▾", &head), vec![(MACHINE_INK, true)]);
         s.press(&["space"]);
         assert_eq!(box_ink(&s.s, None), MACHINE_INK);
         assert_eq!(inks_on(&s.inked(100), "coordinator  not started", &format!("{host} coordinator")), vec![(MACHINE_INK, true)]);

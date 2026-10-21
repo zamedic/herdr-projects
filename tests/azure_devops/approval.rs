@@ -11,7 +11,7 @@ use sw::actions::finish_line;
 use sw::azure::{logs, runs};
 use sw::housekeeping::poll_prs;
 use sw::json::*;
-use super::azure_devops_flow::{az_world, merge_commit};
+use super::flow::{az_world, merge_commit};
 
 /// A run's timeline as Azure Pipelines gives it: its stage `Staging` held at an approval before its deployment job.
 fn held_at_staging() -> Value {

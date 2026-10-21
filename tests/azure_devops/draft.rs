@@ -2,7 +2,7 @@
 //! deployment to staging) runs before your yes, and the yes only completes it; on GitHub it stays a draft until the
 //! yes. The setting moves either host, per task, repo or in general. While it is open, the row and `details` say
 //! what its pipeline is doing: running, deploying, passed, deployed.
-use crate::azure_devops_flow::{az_world, stages};
+use super::flow::{az_world, stages};
 use crate::common;
 use common::az::policy;
 use common::*;
