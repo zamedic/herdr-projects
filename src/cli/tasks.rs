@@ -9,15 +9,20 @@ use crate::herdr::cli::current_socket;
 use crate::json::*;
 use crate::research::is_research;
 use crate::shown::queue::{queued, tag as queue_tag, words as queue_words};
+use crate::shown::states::{in_review, standing};
+use crate::status_words::words::READY;
 use crate::store::{keys::{repo_keys, tag_of}, reviews::{current_review, review_round}, tasks::find, titles::title_note};
 
 /// One task of `list`: named by its key (`HSW-134`), in a column of its own.
 fn line(t: &Obj, keys: &crate::store::keys::Keys) -> String {
-    format!("{:<9} {:<8}{}{}  {}{}{}{}", crate::store::keys::say_id(t.s("id"), keys), t.t("state"), if t.b("kind") { format!(" {}", t.s("kind")) } else { String::new() }, if t.b("shownApp") { format!(" [{}]", t.s("shownApp")) } else { String::new() },
+    // Finished work that waits only for your yes is "ready to approve", as the board says it: not "blocked permission".
+    let (state, kind) = if in_review(t) { (READY.to_string(), String::new()) } else { (t.t("state"), if t.b("kind") { format!(" {}", t.s("kind")) } else { String::new() }) };
+    format!("{:<9} {:<8}{}{}  {}{}{}{}", crate::store::keys::say_id(t.s("id"), keys), state, kind, if t.b("shownApp") { format!(" [{}]", t.s("shownApp")) } else { String::new() },
         t.s("title"), if t.b("chatOnly") { " [chat]" } else if t.b("research") { " [research]" } else { "" }, if queued(t) { format!("  · {}", queue_words(t)) } else if !crate::after::todo_line(t).is_empty() { format!("  · {}", crate::after::todo_line(t)) } else if t.b("note") { format!("  · {}", t.s("note")) } else { String::new() }, if t.b("archivedAt") { "  (archived)" } else { "" })
 }
 fn brief(t: &Obj) -> Value {
     let mut o = obj(json!({ "id": t.at("id"), "state": t.at("state"), "kind": t.at("kind"), "app": t.at("shownApp"), "title": t.at("title"), "msg": t.at("note"), "stage": t.at("stage"), "progress": t.at("progress"), "eta": t.at("eta") }));
+    o.put("stands", standing(t)); // where it stands in the board's words: "ready to approve", "asks for your OK", …
     if t.b("pr") { o.put("pr", t.at("pr").clone()); }
     if t.b("research") { o.put("research", t.at("research").clone()); }
     if t.b("chatOnly") { o.put("chat", true); }

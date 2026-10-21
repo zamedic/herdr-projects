@@ -18,7 +18,7 @@ full path works even when it is not on your PATH):
 
 Every command accepts `--json`. Below, `herdr-projects` stands for that path.
 
-- `herdr-projects list`: the tasks: each by its short name (`HSW-134`; `--json` gives the id, `<repo>/<number>`), state (idle, working, blocked, done, error), who is on it, title.
+- `herdr-projects list`: the tasks: each by its short name (`HSW-134`; `--json` gives the id, `<repo>/<number>`), state (idle, working, blocked, done, error; `ready to approve` for finished work that waits only for the human's yes), who is on it, title.
   Every repo has a short key, so the human may name a task by it: `HSW-134` (any letter case) is accepted wherever an
   `<id>` is and means the same task, and so is a key the repo had before. The id stays its real name: use the id in
   what you write back. To change a key: `herdr-projects set repo.key <KEY> --repo <name>`.

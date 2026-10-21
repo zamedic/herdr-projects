@@ -229,6 +229,9 @@ fn finish_steps(id: &str, g: &mut Guard, mut t: Task, ev: Option<Value>, force: 
         }
         // A chat-only task waits for your next message all the same: nothing tells it to finish (finish/chat_only.rs).
         if crate::chat_only::is_chat(&t) { g.set(&keep)?; super::chat_only::turn_waits(g, "")?; return Ok(()); }
+        // A turn in a chat with work at rest that changed nothing (a compaction, an answer on the screen alone): the work
+        // goes back to waiting for your yes, never to "stopped without a summary" with the screen's last line.
+        if t.at("chat").at("from").is_object() { g.set(&keep)?; if super::chat::kept(g)? { return Ok(()); } }
         g.set(|t| { keep(t); t.put("stage", "nosummary"); let m = one_line(&last_lines(&screen, 2), 2048); t.put("msg", if m.is_empty() { "Stopped without a summary".into() } else { m }); t.put("screen", screen.clone()); })?;
         return Ok(());
     }
