@@ -45,7 +45,8 @@ herdr-projects autopilot off [--machine | --project <repo> | --all]
   that is given `ask` shows `needs you`.
 - **`on` while it is on** changes what it names (a new goal is saved, a value given replaces this time's of that name,
   the rest stay) and wakes it. From `needs you` it starts again with a clean count.
-- **Turning on wakes it**, as soon as any turn of yours is over.
+- **Turning on wakes it**, as soon as any turn of yours is over. On the board it says nothing: the coordinator's row
+  shows it (below). The command says what it turned on, with its goal.
 - **Off** drops this time's values and every reason it had to wake. A turn under way is not cut off (its chat is yours
   too), but from then on every write of that turn is refused: `autopilot was turned off`.
 - **`off --all` is this machine only.** Another machine's coordinators are turned off there, or one by one with
@@ -62,16 +63,36 @@ herdr-projects autopilot off [--machine | --project <repo> | --all]
 - **A heading stands for its coordinator**: a machine's heading with every machine shown (`Alt+M`), a repo's heading
   when grouped by repo (`Alt+S`). Grouped by status, or on one machine, those coordinators have no row: change the
   grouping to reach them, as to talk to them.
-- **While it is on, its row has an autopilot line**, laid out as an automation's row is: beside the heading, or under
-  it where the list is narrow.
+- **While it is on, its row reads as a task's row**: autopilot's mark `◎` all the way left, in the column where a task
+  has its mark and an automation its arrow, with the fold caret one step in, where a task's tag starts; the timing in
+  the columns on the right, where a task keeps its progress and its time; and what it does now on the line under its
+  name, as a live task's second line.
 
   ```
-   Coordinator · 2 others on · 1 needs you
-   ▾ herdr-projects · HSW   autopilot on · every 1h + events · last HSW-92 · next in 40m
+   ◎   Coordinator · 2 others on · 1 needs you                    0 of 5 added  next in 1h
+       On · woke 12m ago: HSW-92 merged
+
+   ◎ ▾ herdr-projects · HSW                               2 of 5 added  ✓ HSW-92  next in 40m
+       Working · woke for HSW-92 merged
+   ✓ HSW-92  Sync never loses data
   ```
 
-  Its state word, its triggers, the last task it added and when it next wakes. Off, nothing of autopilot shows, as a
-  task shows nothing of an agent before one is on it.
+  - **The mark** is one column wide, of the family of a task's marks (`◐ ◇ ○ ✓`), never an emoji. It takes the colour
+    of its state, as a task's does: red at `needs you` and `could not start` (bold, as a task that waits for you),
+    yellow while `working`, quiet while `asleep`, plain text else. No colour of its own.
+  - **The columns**: today's adds against `autopilot.tasksPerDay` (`2 of 5 added`), the last task it added with that
+    task's mark and tag (as an automation shows the task it made), and when it next wakes (`next in 40m`, `waits for its
+    hours`). They end at the list's right edge, where a task's time does. Where the list is narrow they give way, the
+    adds first, then the last task; when it next wakes then goes to the end of the line under the name.
+  - **The line under the name** starts with its state word, then what goes with it: `On · woke 12m ago: …` (or
+    `On · wakes every 1h + events` before its first wake), `Working · woke for …`, `At its limit · 2 of 2 under way:
+    waits for one to finish` (or `no adds left today`), `Asleep · its hours are 09:00-17:00`, `Needs you · its last
+    wakes went unanswered`, `Could not start · …`. In the brighter grey a task's line has; `Needs you` and
+    `Could not start` in red.
+  - **A machine's heading** keeps its rule: it runs from the name to the columns.
+
+  Off, nothing of autopilot shows, as a task shows nothing of an agent before one is on it. A machine on an older
+  version sends only its old line: that goes under the name.
 - **The state word**, the first that holds:
 
   | Word | Means |
@@ -89,8 +110,8 @@ herdr-projects autopilot off [--machine | --project <repo> | --all]
   same whole, with its last 20 wakes (when, why, answered). While on: its goal, today's counts
   (`2 of 5 added · 1 of 2 under way`) and its settings in plain words.
 - **Its wakes show in its chat**, under the name `Autopilot`, in autopilot's colour, never as your words.
-- **Its colour** is an orange of its own ([colours](colours.md)). `needs you` and `could not start` are red. The word
-  `autopilot` is on the line, so colour is never the only clue.
+- **Its colours** on the list are the theme's own, as a task's ([colours](colours.md)): red where it needs you, yellow
+  while it works. The mark and the state word on its line say the same, so colour is never the only clue.
 
 ## When it wakes
 
@@ -169,7 +190,9 @@ nothing more, and autopilot may not touch it.
 `mayChange` allowed. Three things differ:
 
 - Their agent and reviewer may read the board, and `report` on their own task. Every other board command is refused, so
-  nothing its tasks do adds work outside its limits.
+  nothing its tasks do adds work outside its limits. A command is its agent's (or reviewer's) when it runs in that
+  pane in a terminal the agent was seen in: Herdr gives a closed pane's id to the next pane of its space, so a
+  coordinator in a done task's old pane is that coordinator, not the done task's agent.
 - Under `autopilot.repoFileWaits yes`, a change that touches the repo's own `.herdr-projects.json` never merges by
   itself, whatever `merge.by` or `autopilot.approve` say. Its row says it waits for your own yes.
 - An approve from autopilot's turn is refused on any task whose change touches that file, whoever added it.
@@ -250,8 +273,9 @@ What each means in full is in [the list](settings.md#the-list).
 
 **Each machine runs its own coordinators' autopilot**, with its own settings and limits. This board shows their lines
 and panels as that machine sends them with its tasks, and sends `Tab` and `Ctrl+X` there. `Ctrl+E` on one shows its
-settings whole, to read, and says to change them there. A machine on an older version sends no autopilot, and the keys
-say to update it there.
+settings whole, to read, and says to change them there. Each coordinator with a row is sent, its machine's and every
+repo's that machine knows, one that never ran as off: `Tab` there starts it, as a first message would. A machine on an
+older version sends no autopilot at all, and the keys say to update it there.
 
 **The main Coordinator sees other machines only while a board is open.** The keeper does not ask other machines for
 their tasks. So their tasks reach the main Coordinator's autopilot only as an open board (in a terminal or the web UI)

@@ -2,15 +2,21 @@
 // round add button in the lower left picks any files, and a picture pasted into the box or files dropped on it are
 // taken too. Each stands as a tile above the message (a picture's thumbnail, else its name), saying where it stands,
 // with a cross that takes it out. Each goes to the board (webui/attach.rs), for whoever the words are for, and is kept
-// where they can read it; its path goes into the message as `@<path> `, at its start, in the order the files were
-// picked, which is how the agent reads it, as in the web UI. Its limits are the web UI's: 8 MB a file, three on their
+// where they can read it; it goes into the message at its start, in the order the files were picked: a picture as
+// `[Image 1] `, `[Image 2] ` (numbered per message; one character to the caret, which never stands inside it, and to
+// backspace, which takes it out whole, its tile with it), any other file as
+// `@<path> `, as in the web UI. What is sent names each picture as `@<path>`, which is how the agent reads it (`expand`,
+// docs/image-paste.md). Its limits are the web UI's: 8 MB a file, three on their
 // way at a time, and as many at once as its Settings → Chat → Files at once says.
-/* global window, localStorage, URL */
+/* global window, document, localStorage, URL, setTimeout */
 import { h, icon, post } from "./dom.js";
 
 const MOST = 8 * 1024 * 1024, AT_ONCE = 3, LONGEST = 20000;
 const PREVIEW = ["image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml"];
 export const mention = (path) => `@${path} `;
+// A picture in the words: `[Image n]`, its path only in what is sent.
+export const chip = (n) => `[Image ${n}]`;
+const CHIP = /^\[Image (\d+)\] $/u;
 // How many files one pick, paste or drop takes: the web UI's own setting, where it keeps it (20 unless set).
 export const perPick = () => { try { const n = JSON.parse(localStorage.getItem("herdr-web-ui:settings") || "{}").attachLimit; return Number.isFinite(n) ? Math.min(50, Math.max(1, Math.round(n))) : 20; } catch { return 20; } };
 const mb = (n) => `${Math.ceil((n / (1024 * 1024)) * 10) / 10} MB`;
@@ -36,6 +42,8 @@ export function filesEl({ box, whom, hold = () => false, changed, say }) {
   const input = h("input", { type: "file", multiple: true, hidden: true });
   const add = h("button.icon-button.sw-attach", { type: "button", "aria-label": "Attach files", title: "Attach files" }, icon("plus"));
   const busy = () => list.some((f) => f.state === "uploading");
+  // The next picture's number: one more than the highest still in the words' files, so each message counts from 1.
+  const nextChip = () => 1 + Math.max(0, ...[...placed.values()].map((m) => Number(CHIP.exec(m)?.[1] || 0)));
   const draw = () => {
     strip.hidden = !list.length;
     strip.replaceChildren(...list.map((f) => h(`div.sw-file.is-${f.state}`,
@@ -54,7 +62,7 @@ export function filesEl({ box, whom, hold = () => false, changed, say }) {
     while (waiting.length) {
       const { id, path } = waiting[0], f = list.find((x) => x.id === id);
       if (!f) { waiting.shift(); continue; }
-      const m = mention(path), out = leading(box.value, m, [...placed].filter(([p]) => p < id).map(([, x]) => x));
+      const m = f.file.type.startsWith("image/") ? `${chip(nextChip())} ` : mention(path), out = leading(box.value, m, [...placed].filter(([p]) => p < id).map(([, x]) => x));
       if (!out.length) break; // no room for it whole: it waits for room, and Send waits with it
       const [a, b] = [box.selectionStart, box.selectionEnd];
       box.value = out.text;
@@ -95,7 +103,7 @@ export function filesEl({ box, whom, hold = () => false, changed, say }) {
     if (f.url) URL.revokeObjectURL(f.url);
     const m = placed.get(f.id);
     placed.delete(f.id);
-    if (m) box.value = box.value.replace(m, "");
+    if (m) box.value = box.value.includes(m) ? box.value.replace(m, "") : box.value.replace(m.trimEnd(), "");
     draw(); place(); // the room it leaves may be what a finished file waits for
   }
   add.addEventListener("click", () => input.click());
@@ -104,6 +112,46 @@ export function filesEl({ box, whom, hold = () => false, changed, say }) {
   box.addEventListener("paste", (e) => {
     const files = [...(e.clipboardData?.items || [])].filter((i) => i.kind === "file").map((i) => i.getAsFile()).filter(Boolean);
     if (files.length) { e.preventDefault(); take(files); }
+  });
+  // The pictures' chips whole in the words now: { f, at, end }.
+  const chips = () => list.flatMap((f) => {
+    const m = placed.get(f.id), c = m?.trimEnd(), at = m && CHIP.test(m) ? box.value.indexOf(c) : -1;
+    return at < 0 ? [] : [{ f, at, end: at + c.length }];
+  });
+  // Backspace just after a picture's chip, or delete just before it, takes the picture out whole, its tile with it.
+  box.addEventListener("keydown", (e) => {
+    if ((e.key !== "Backspace" && e.key !== "Delete") || e.isComposing || e.altKey || e.ctrlKey || e.metaKey || box.selectionStart !== box.selectionEnd) return;
+    const at = box.selectionStart, c = chips().find((x) => (e.key === "Backspace" ? x.end : x.at) === at);
+    if (!c) return;
+    e.preventDefault();
+    box.value = box.value.slice(0, c.at) + box.value.slice(c.end);
+    box.setSelectionRange(c.at, c.at);
+    placed.delete(c.f.id);
+    remove(c.f);
+  });
+  // The caret never stands inside a chip (a click, an arrow, a tap): it goes past it the way it was going; a selection
+  // takes a chip whole or not at all. So no edit cuts one.
+  let caret = 0;
+  const snap = () => {
+    if (document.activeElement !== box) return;
+    let [a, b] = [box.selectionStart, box.selectionEnd];
+    const one = a === b, back = one && a < caret;
+    for (const c of chips()) {
+      if (one) { if (a > c.at && a < c.end) a = b = back ? c.at : c.end; continue; }
+      if (a > c.at && a < c.end) a = c.at;
+      if (b > c.at && b < c.end) b = c.end;
+    }
+    if (a !== box.selectionStart || b !== box.selectionEnd) box.setSelectionRange(a, b, box.selectionDirection);
+    caret = box.selectionEnd;
+  };
+  for (const [on, name] of [[document, "selectionchange"], [box, "selectionchange"], [box, "select"], [box, "keyup"], [box, "pointerup"], [box, "focus"]]) on.addEventListener(name, snap);
+  // A chip changed all the same (cut, typed over in a way the caret did not catch): its picture is no longer in the
+  // words, so it goes, its tile with it, and the band says so: never a tile for a picture that is not sent.
+  box.addEventListener("input", () => {
+    const whole = new Set(chips().map((c) => c.f.id));
+    const lost = list.filter((f) => CHIP.test(placed.get(f.id) || "") && !whole.has(f.id));
+    for (const f of lost) { const m = placed.get(f.id).trim(); placed.delete(f.id); remove(f); setTimeout(() => say(`${m} was taken out of the message.`), 0); }
+    snap();
   });
   box.addEventListener("compositionstart", () => { box.dataset.composing = "1"; });
   box.addEventListener("compositionend", () => { delete box.dataset.composing; setTimeout(place, 0); });
@@ -120,10 +168,15 @@ export function filesEl({ box, whom, hold = () => false, changed, say }) {
     strip, input, add, busy, dropOn,
     count: () => list.length,
     place, ids: () => list.map((f) => f.id),
+    // The words as they are sent and kept: each picture's chip is `@<path>` again.
+    expand: (text) => list.reduce((t, f) => { const m = placed.get(f.id); return m && CHIP.test(m) && f.path ? t.replace(m.trimEnd(), () => `@${f.path}`) : t; }, text),
     // Sent: the tiles of the files sent (`ids`: those there when it went; none: all) go; the files stay where they
     // were kept, for the agent to read. One attached while it was on its way stays, for the next message.
     clear(ids) {
       const gone = ids ? list.filter((f) => ids.includes(f.id)) : list;
+      // A sent picture's chip still in the words (they were changed while they went, and stay whole): its path, so
+      // what stays names the picture as what was sent did.
+      for (const f of gone) { const m = placed.get(f.id); if (m && CHIP.test(m) && f.path) box.value = box.value.replace(m.trimEnd(), () => `@${f.path}`); }
       for (const f of gone) { if (f.url) URL.revokeObjectURL(f.url); placed.delete(f.id); }
       list = list.filter((f) => !gone.includes(f));
       if (!ids) { placed.clear(); waiting.length = 0; queue.length = 0; }

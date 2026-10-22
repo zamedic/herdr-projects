@@ -12,7 +12,7 @@ const DOC: &str = include_str!("../docs/web-chat-box.md");
 #[test]
 fn the_mic_is_the_web_uis_tapped_held_or_its_shortcut_with_its_pill_and_escape_that_cancels() {
     assert!(VOICE.contains(r#"h("button.sw-mic", { type: "button", "aria-label": "Dictate (hold)", title: "Dictate (hold)", "aria-pressed": "false" }, icon("mic"))"#));
-    assert!(COMPOSE.contains("files.input, files.add, voice.el, to)") && COMPOSE.contains("note, voice.pill, card)"));
+    assert!(COMPOSE.contains("files.input, files.add, voice.el, call, to)") && COMPOSE.contains("note, voice.pill, card)"));
     // a press starts (or finishes); held this long, letting go finishes; the click after a release is not a second
     // press
     assert!(VOICE.contains("const HOLD_MS = 300, MAX_SECONDS = 120, MAX_BYTES = 10 * 1024 * 1024"));
@@ -47,7 +47,7 @@ fn the_words_go_in_at_the_caret_by_the_web_uis_engines_and_settings_and_a_watche
 fn closing_the_board_stops_dictation_lets_the_microphone_go_and_leaves_the_kept_draft_alone() {
     const BOARD: &str = include_str!("../crates/web/src/webui/page/board.js");
     assert!(BOARD.contains("root = null; chat = null;") && BOARD.contains("c?.destroy();"), "closing the board lets its box go");
-    assert!(CHAT.contains("destroy() { closed = true; destroy(); phone.destroy(); room.destroy(); dock.destroy(); window.removeEventListener(\"resize\", layout); window.removeEventListener(\"popstate\", popped); },") && CHAT.contains("onInput: () => { if (closed) return; sync(); keep(box.value, to); }"));
+    assert!(CHAT.contains("destroy() { closed = true; destroy(); phone.destroy(); room.destroy(); dock.destroy(); window.removeEventListener(\"resize\", layout); window.removeEventListener(\"popstate\", popped); },") && CHAT.contains("onInput: () => { if (closed) return; sync(); keep(files.expand(box.value), to); }"));
     assert!(CHAT.contains("if (closed) return; // the board closed while it was on its way"));
     assert!(COMPOSE.contains("const destroy = () => { window.removeEventListener?.(\"resize\", fit); voice.destroy(); };"));
     // dictation: cancelled (the microphone's tracks stopped, a transcript on its way aborted), every page listener let

@@ -28,7 +28,7 @@ agent.
 ```
 
 - `↑` `↓` select a task. `Enter` goes into its agent. `Space` talks to its agent instead of the Coordinator.
-- Type and press `Enter` to send. `Tab` sends and starts an agent on what it adds.
+- Type and press `Enter` to send. The Coordinator decides what to start: ask it to in your words.
 - `Alt+P` shows the [task panel](task-panel.md) beside the list. `?` lists every key ([keys](keys.md)).
 
 ## The header
@@ -551,6 +551,8 @@ It looks the same for the Coordinator and for a task's agent, at every window wi
 2. **One rounded box**: the newest thing said in that conversation, in grey, under a line that names who said it
    (`Coordinator:`, `Agent:`, `Reviewer:`, `You:`); then an empty line; then the line you type on (the prompt is only
    `❯`).
+   - A picture you paste stands on it as `[Image 1]`, not as its path; what is sent has the path
+     ([pictures pasted](image-paste.md)).
    - While that line is empty, it says in grey who gets your message, by the name of their tab:
      `Send message to Coordinator`, or `Send message to Agent`. Nothing else is in it.
    - The box's frame and its `❯` say it by colour too: the plain text colour for the Coordinator, the task's status
@@ -562,7 +564,7 @@ It looks the same for the Coordinator and for a task's agent, at every window wi
      the filter, the archive), `Esc` hides it too, before it does anything about closing the board. On the web board
      `Esc` does the same, while nothing is typed and find is closed.
 3. **One greyed hint line under the box**, with only the keys that do something right now. While you type, it says what
-   the keys do with your words (`enter send to the Coordinator · tab send, and put an agent on what it adds · shift+enter new line · esc put away`). What each hint says, and what gives way in a narrow window:
+   the keys do with your words (`enter send to the Coordinator · shift+enter new line · esc put away`). What each hint says, and what gives way in a narrow window:
    [the hint line](keys.md#the-hint-line).
 
 ### Only the words of the conversation

@@ -15,12 +15,14 @@ measured against the original.
 
 - **Enter sends, shift+enter is a new line**, on a phone too. If the web UI's Settings → Chat has "Enter sends" turned
   off, ctrl or cmd with enter sends here as well. A keyboard that composes letters keeps its enter.
-- **Tab, or Send + start**, sends and puts an agent on what it adds (more below).
+- **Tab, or Send + start**, only on a machine with no Coordinator: adds your words as a task and puts an agent on it
+  (more below). A coordinator gets your words with enter alone, and decides itself what to start.
 - **The grip** on the card's top edge makes the box taller: drag it up (up to half the window, 480 px at most).
   Double-click or tap it twice for the automatic height. With the keyboard: up and down a line (two with shift), and
   Home. The height is kept in this browser.
 - **+** attaches files. Pasting a picture or dropping files works too.
 - **The mic** dictates.
+- **Call** (the phone, right after the mic) starts a [voice call](voice.md); while one rings or is on, it hangs up.
 - **Escape** goes one step back, as on the terminal board. The draft stays.
 - **Sending keeps the keyboard up** on a phone: the round button and **Send + start** never take the focus from the box,
   as the web UI's Send does, so you can type the next message at once. A tap while the keyboard still composes the last
@@ -47,8 +49,11 @@ Measured against **herdr-web-ui 0.4.8** (see [how](#how-it-was-measured)):
     too (the card's border turns to the accent while files are over it).
   - Each file stands as a tile above the message (a picture's thumbnail, else its name), saying Uploading, Attached or
     Failed, with a cross to take it out.
-  - Its path goes into the message as `@<path> `, at its start, in the order the files were picked, which is how the
-    agent reads it. Send waits while one is on its way.
+  - It goes into the message at its start, in the order the files were picked: a picture as `[Image 1] ` (numbered per
+    message; one character to the caret and to backspace, which takes it out whole, its tile with it), any other
+    file as `@<path> `. What is sent names
+    each as `@<path>`, which is how the agent reads it ([pictures pasted](image-paste.md)). Send waits while one is on
+    its way.
   - The web UI's limits: 8 MB a file (a bigger one says so in a band over the box), three on their way at a time, and as
     many at once as its Settings → Chat → Files at once says.
   - The file is kept where whoever gets the words can read it: in the Coordinator's own folder (a heading's
@@ -86,6 +91,16 @@ however long the words get (`crates/web/src/webui/page/room.js`):
 - **The board's header, its chips and the list step aside**, as they do for the chat full screen: the chat has the
   whole of what the keyboard leaves. The chat's bar, which says who gets your words, stays. When the keyboard goes down (or you
   tap elsewhere), all of it is back.
+- **With the chat hidden, it stays hidden**: a tap in the box and typing there never open it. The board stays in view
+  over the chat's bar and the box, and the box stays whole above the keyboard (and the strip iOS floats over it). Only
+  the bar's Show (or Full screen) opens the chat; then the board steps aside as above. Hidden, the chat is only its bar
+  and its box, with or without a keyboard: the list has the rest (`crates/web/src/webui/page/keep.js`):
+  - **The list keeps at least a heading and two rows (120 px)**, however long the words: the box gives way first and
+    scrolls (never under its one line), with the line you type on in view.
+  - **Where even the box's one line leaves the list less** (a phone on its side), the board's header and chips step
+    aside, then the chat's bar (and the attached files' tiles, which stay attached), and the box's buttons stand
+    beside its line instead of under it. The list never steps aside: it has all that is left over the box. This is only while the keyboard is up; when it goes down, all of it is back.
+  - The same holds for the web UI's box, docked under the board ([web chat](web-chat.md#above-a-phones-keyboard)).
 - **The conversation takes what the box leaves**, over it. Where that is too little to read (104 px), it steps aside for
   the words, and comes back when they are shorter.
 - **The box is never taller than the room left**: as tall as its words, up to ten lines (or the height set with the
@@ -95,8 +110,8 @@ however long the words get (`crates/web/src/webui/page/room.js`):
   in that you did not type (a file's path, a dictation). Measuring again (the window's size, the board drawn again
   every two seconds) never moves where the box is scrolled to.
 - **Where not even one line fits** (a phone on its side, the keyboard leaving 200 px), all of the chat but the box steps
-  aside too: the chat's bar, the conversation, the grip and the attached files' tiles. The files stay
-  attached (their paths are in the words) and come back with the room.
+  aside too (with the chat shown; hidden, see above): the chat's bar, the conversation, the grip and the attached files' tiles. The files stay
+  attached (they are in the words) and come back with the room.
 - **On an iPhone the box also stands clear of the strip iOS floats over the page** while its keyboard is up (its arrows
   and Done): iOS counts it as part of the visible window, so the box keeps 72 px more room at its foot. That strip was
   measured on an iPhone's screenshot (iOS 26): its top stands 73 px over the foot of the visible window.
@@ -112,6 +127,16 @@ In each the card's foot and the caret's line stayed above the strip, also after 
 the chat again; before, the box ran 120 px (with a picture, 170 px) under the strip and the keyboard. Not tried on a
 real phone.
 
+The chat hidden while you type was tried the same way (2026-10-21, Chromium and WebKit) at a phone's size (390×844, the
+keyboard leaving 470 px), on its side (844×390, leaving 200), a tablet's (820×1180, leaving 780) and a desktop's
+(1440×900, no keyboard), with the board's own box and with the web UI's docked: a tap in the box and typing kept the
+chat hidden and the list in view (on the phone 203 px of list over the box, before none). Twenty lines pasted kept
+121 px of list on the phone (the box 126 px, scrolled to the caret's line; before the list went down to 6 px); on its
+side the header and the chat's bar stepped aside and the list kept 137 px (twenty lines: 120 px; the web UI's box:
+120 px) over the box, where before the board was hidden whole. Show while typing opened the chat (the board stepping aside), Hide
+put it back, and with the keyboard down the header, the bar and the list's whole height were back. The page asked for
+no frame more than it did before while it sat still.
+
 ## What is the board's own, in that shape
 
 | The board's | Where it is in the box |
@@ -119,8 +144,8 @@ real phone.
 | who gets your words: the Coordinator (and on which machine, where another one's shows) or a task's agent, with the task named | said by the switch over the box ([the web UI](web-ui.md)), not in it. The box's own hint says it too while empty (`Send message to Coordinator`) |
 | the lock that keeps a draft with who it was typed for | a filled chip in the lower left, beside the add button, only while the page shows somebody else: `To: HSW-34 agent · not who is shown above`. Attaching a file locks it as typing does |
 | the box's colour by who you type to ([colours](colours.md)) | the card's border: the plain text colour for the Coordinator, the task's status colour for its agent. The web UI's border is grey and turns to its accent on focus; here the border already says who, so focus draws a ring of that same colour round it |
-| the two ways to send | the round button and enter send. **Send + start** and tab, while there are words and it applies, send and put an agent on what it adds. **Send + start** is a chip of the web UI's (the shape of its one-tap replies). Each says in its tooltip what it does with the words |
-| who you talk to (the Coordinator or the task's agent), and the conversation | the chat's bar over the conversation: the switch of the two you can talk to, Call, Hide and Full screen; the conversation over the box, drawn as the web UI draws its own ([the web board's chat](web-chat.md)) |
+| the two ways to send | the round button and enter send. **Send + start** and tab, while there are words and no Coordinator to send them to, add them as a task and put an agent on it. **Send + start** is a chip of the web UI's (the shape of its one-tap replies). Each says in its tooltip what it does with the words |
+| who you talk to (the Coordinator or the task's agent), and the conversation | the chat's bar over the conversation: the switch of the two you can talk to, Hide and Full screen (Call is in the box, beside the mic); the conversation over the box, drawn as the web UI draws its own ([the web board's chat](web-chat.md)) |
 | the notice after sending | above the chat, as before |
 | a draft is never lost | it is kept with who it is for, also over a reload. While a message is on its way the words stay in the box and a second enter does nothing. Words the board could not take stay in the box |
 | a device that may only watch | the box is faded and says so |
