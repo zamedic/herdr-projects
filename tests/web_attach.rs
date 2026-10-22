@@ -96,16 +96,27 @@ fn the_box_attaches_as_the_web_uis_does_the_add_button_tiles_paste_drop_and_the_
     // the add button in the lower left, the web UI's quiet round icon button, and its file picker
     assert!(FILES.contains(r#"h("button.icon-button.sw-attach", { type: "button", "aria-label": "Attach files", title: "Attach files" }, icon("plus"))"#));
     assert!(FILES.contains(r#"h("input", { type: "file", multiple: true, hidden: true })"#));
-    assert!(COMPOSE.contains(r#"h("div.sw-card.sw-b-text", grip, files.strip, box, h("div.sw-controls.sw-controls-left", files.input, files.add, voice.el, to), h("div.sw-controls.sw-controls-right", also, send))"#));
+    assert!(COMPOSE.contains(r#"h("div.sw-card.sw-b-text", grip, files.strip, box, h("div.sw-controls.sw-controls-left", files.input, files.add, voice.el, call, to), h("div.sw-controls.sw-controls-right", also, send))"#));
     // a tile: a picture's thumbnail or the file's name, where it stands, a cross that takes it out (and its path)
     assert!(FILES.contains(r#"f.state === "uploading" ? "Uploading" : f.state === "error" ? "Failed" : "Attached""#));
-    assert!(FILES.contains("if (m) box.value = box.value.replace(m, \"\");"));
+    assert!(FILES.contains(r#"if (m) box.value = box.value.includes(m) ? box.value.replace(m, "") : box.value.replace(m.trimEnd(), "");"#));
     // a picture pasted, files dropped on the card
     assert!(FILES.contains(r#"filter((i) => i.kind === "file")"#) && FILES.contains(r#"card.addEventListener("drop""#) && COMPOSE.contains("files.dropOn(card);"));
     // the web UI's limits: 8 MB, three at a time, its own Files at once
     assert!(FILES.contains("const MOST = 8 * 1024 * 1024, AT_ONCE = 3") && FILES.contains(r#"localStorage.getItem("herdr-web-ui:settings") || "{}").attachLimit"#));
     // the path goes in at the start, as the web UI's `@path `, after a /command and the files picked before it
     assert!(FILES.contains("export const mention = (path) => `@${path} `;") && FILES.contains(r#"let at = /^\/\S+\s*/u.exec(text)?.[0].length ?? 0;"#));
+    // a picture stands in the words as `[Image n] `, numbered per message, and is sent and kept as its `@path`;
+    // backspace after it (delete before it) takes it out whole, its tile with it (docs/image-paste.md)
+    assert!(FILES.contains("export const chip = (n) => `[Image ${n}]`;") && FILES.contains(r#"f.file.type.startsWith("image/") ? `${chip(nextChip())} ` : mention(path)"#));
+    assert!(FILES.contains(r#"t.replace(m.trimEnd(), () => `@${f.path}`)"#) && FILES.contains(r#"(e.key !== "Backspace" && e.key !== "Delete")"#) && FILES.contains("placed.delete(c.f.id);\n    remove(c.f);"));
+    assert!(CHAT.contains("await onSend(files.expand(text), delegate") && CHAT.contains("keep(files.expand(box.value), to); }"));
+    // the caret never stands inside a chip, a selection takes one whole; a chip changed all the same takes its picture
+    // out, tile and all, and says so; one still in words changed while they went is its path again (never a label
+    // that names nothing)
+    assert!(FILES.contains("if (one) { if (a > c.at && a < c.end) a = b = back ? c.at : c.end; continue; }") && FILES.contains(r#"[[document, "selectionchange"], [box, "selectionchange"], [box, "select"], [box, "keyup"], [box, "pointerup"], [box, "focus"]]"#));
+    assert!(FILES.contains("const lost = list.filter((f) => CHIP.test(placed.get(f.id) || \"\") && !whole.has(f.id));") && FILES.contains("was taken out of the message."));
+    assert!(FILES.contains("for (const f of gone) { const m = placed.get(f.id); if (m && CHIP.test(m) && f.path) box.value = box.value.replace(m.trimEnd(), () => `@${f.path}`); }"));
     // sent to the board for whoever the words are for; attaching locks that as typing does; no send while one is on its way
     assert!(FILES.contains(r#"post("attach", { name: file.name || "", type: file.type || "", data: base64("#) && FILES.contains("to: whom() });"));
     assert!(CHAT.contains("holding = typing || files.count() > 0;") && CHAT.contains("if (!holding) to = null; else if (!to && now) to = { ...now };"));

@@ -19,7 +19,7 @@ The Coordinator stays as it is. The others sit beside it: talking to one never t
 - **A repo with no tasks in view keeps its heading**, folded (`0 tasks`), when it was used in the last 14 days (a task,
   archived ones too) or has a project coordinator, so `Space` still reaches it. Older repos, and repos whose folder is gone, have none.
 - The chat names it (`herdr-projects coordinator  idle`), and so does the box: `Send message to herdr-projects
-  coordinator`. `Enter` sends, `Tab` sends and starts an agent on every task it adds, as with the Coordinator.
+  coordinator`. `Enter` sends, and it decides what to start, as the Coordinator does.
 - **It follows the selection**, as a task's agent does: move to another heading and you talk to that one's
   coordinator, move to a task and you talk to its agent. `Space` again goes back to the Coordinator.
 - A status group's heading (`to do`, `done`) has none. `Space` there says so.
@@ -54,7 +54,8 @@ A machine's heading and a repo's heading stand for their coordinator, as a row s
 - `Ctrl+E` opens its settings page: its own rows first, under `This coordinator`, then what that heading's page always
   showed (on this machine's heading your own settings, on a repo's your entry for that repo).
 - `Tab`, with nothing typed, puts it on [autopilot](autopilot.md) with its saved goal and settings; `Ctrl+X` takes it
-  off. While on, an autopilot line goes beside the heading.
+  off. While on, the heading reads as a task's row: autopilot's mark, its timing on the right, what it
+  does under its name ([autopilot](autopilot.md)).
 - Grouped by status, or on one machine, these coordinators have no heading: change the grouping to reach them.
 
 **Each has its own settings**, `coordinator.*` and `autopilot.*`, looked up **this coordinator → you → built in**
