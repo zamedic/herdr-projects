@@ -164,4 +164,14 @@ repo has) runs for the merge commit, its row saying how far: `Main pipeline runn
 | a name or id, or several (`CI, deploy`) | those, each until it starts and passes |
 | `none` | nothing: done at the merge |
 
+A pull request completed in Azure DevOps (by its auto-complete, or by you) is merged work. Main then moves, with the
+task's own squash in it, but the board never merges main into that branch and never compares the branch's head with the
+pull request's. The land step and the sync with main both ask Azure DevOps first. Completed, the task is taken for
+merged at the pull request's merge commit (`lastMergeCommit`) and waits for its main pipeline as above. While it waits it
+has no runner, and the board does not count that as a lost runner. A task that an earlier version left with you this way
+(`Pull request has commits that were not reviewed`, after the board merged main into its merged branch) is finished on
+the next poll: that merge of the board's own is undone (only a merge of main on top of what merged, in a clean
+worktree), and the task waits for its main pipeline again. A push to the pull request after its review is still caught
+while the pull request is open.
+
 The gate is Azure DevOps' only: on GitHub a task is done at the merge, as before.
