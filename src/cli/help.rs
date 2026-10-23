@@ -39,6 +39,9 @@ pub const HELP: &str = r#"herdr-projects: a work board for herdr
   herdr-projects pin|archive|restore|clear <id>
   herdr-projects archive --done [--repo NAME]  archive every done task of that repo (or of every repo) in one go; one
                                                 that works, waits, is to do or is pinned stays, and is counted
+  herdr-projects archive|restore --repo NAME    archive a whole project with its tasks (what works or waits is stopped
+                                                first; its coordinator stops, its automations go off), or bring it back
+                                                with its tasks as they were. Nothing on disk or GitHub is deleted
   herdr-projects set <name> <value> [--repo NAME | --task ID | --automation NAME | --main-coordinator | --machine-coordinator | --project-coordinator REPO]
                                       change a setting: for you, for your entry for one repo, for one task, for an automation,
                                       or for one coordinator (its coordinator.* and autopilot.* settings)
@@ -65,6 +68,9 @@ pub const HELP: &str = r#"herdr-projects: a work board for herdr
   herdr-projects coordinator --machine …       the same for this machine's machine coordinator
   herdr-projects coordinator --project REPO …  the same for a repo's project coordinator
   herdr-projects autopilot                     every coordinator of this machine, with its autopilot (docs/autopilot.md)
+  herdr-projects autopilot show [--machine | --project REPO]
+                                                one coordinator's autopilot as it stands now: goal, today's counts,
+                                                its tasks under way, its settings
   herdr-projects autopilot on [--machine | --project REPO] [--goal TEXT] [--autopilot.<name> VALUE …]
                                                 put a coordinator on autopilot: the board wakes it to work toward its goal,
                                                 within its limits; the values given are for this time only

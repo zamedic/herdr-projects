@@ -33,7 +33,7 @@ Details if you need them: https://github.com/eliasstravik/herdr-projects/blob/ma
 
 - Press `prefix+a` in Herdr, or type `herdr-projects` in any pane.
 - Type what needs doing and press `Enter`. The Coordinator makes it a task.
-- Press `Tab` instead of `Enter` to put an agent on it right away.
+- Press `Ctrl+S` instead of `Enter` to put an agent on it right away.
 - Press `?` to see everything else.
 
 Update later with `herdr-projects update`.

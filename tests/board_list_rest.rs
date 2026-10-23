@@ -23,23 +23,23 @@ fn the_menus_legend_is_reached_with_the_arrows_in_a_short_window_and_whole_in_a_
     s.press(&["?"]);
     let n = sw::board::update::menu::items(&s.s).len() as i64;
     s.press(&["down"]); assert_eq!(s.s.menu.as_ref().unwrap().at, 0, "the menu opens with no line picked: the first ↓ picks the first");
-    for rows in [60, 24, 14] {
+    for rows in [70, 24, 14] {
         s.rows = rows;
         let top = s.text();
-        if rows == 60 {
+        if rows == 70 {
             assert!(has(&top, LEGEND), "{top}");
             assert!(has(&top, r"\n on a row *\n[ ▌]  ◐ +an agent works *\n[ ▌]  ◑ +its reviewer works *\n"), "{top}");
             assert!(has(&top, r"\n[ ▌]  ◆ +ready to approve *\n") && has(&top, r"\n[ ▌]  65% 2m left +how far it is, and the time left"), "{top}");
         } else { assert!(!has(&top, LEGEND), "{rows} rows: {top}"); }
         let mut downs = 0; while !has(&s.text(), LEGEND) && downs < 60 { s.press(&["down"]); downs += 1; }
-        assert!(has(&s.text(), LEGEND), "reached with {rows} lines"); assert!(s.text().starts_with(" Menu "), "the menu's first line stays");
+        assert!(has(&s.text(), LEGEND), "reached with {rows} lines"); assert!(s.text().starts_with(" Menu"), "the menu's first line stays: {rows} {downs}\n{}", s.text());
         for _ in 0..60 { s.press(&["down"]); }
         let end = s.text(); assert!(has(&end, LEGEND));
         s.press(&["down", "down"]); assert_eq!(s.text(), end, "nothing under the end"); assert_eq!(s.s.menu.as_ref().unwrap().at, n - 1);
         for _ in 0..80 { s.press(&["up"]); }
         // ↑ on the first line scrolls on up to what is above the list (the plain keys), and ↓ comes back from there
         assert_eq!(s.s.menu.as_ref().unwrap().at, 0);
-        assert!(has(&s.text(), r"^ Menu [^\n]*\n plain keys *\n[ ▌]  ↑ ↓ "), "the top with {rows} lines: {}", s.text());
+        assert!(has(&s.text(), r"^ Menu[^\n]*\n plain keys *\n[ ▌]  ↑ ↓ "), "the top with {rows} lines: {}", s.text());
         for _ in 0..80 { if s.text() == top { break; } s.press(&["down"]); }
         assert_eq!(s.s.menu.as_ref().unwrap().at, 0); assert_eq!(s.text(), top, "↓ goes back the way ↑ came");
     }
@@ -66,7 +66,7 @@ fn the_side_panel_is_closed_on_a_first_opening_and_the_list_has_the_whole_width_
     sw::board::run::prefs::apply(&mut first, &sw::board::run::prefs::read(false));
     assert!(!first.side, "a board opened for the first time has it closed");
     let mut s = open(&w.root, 34); s.press(&["alt+p"]); assert!(!s.s.side);
-    assert!(has(&s.screen(120).join("\n"), r"◐ PRJ-1 +My own task {70,}█[^\n]*\n[ ▌] {8}half way *\n"), "{}", s.screen(120).join("\n"));
+    assert!(has(&s.screen(120).join("\n"), r"◐ PRJ-1 +My own task {70,}█[^\n]*\n[ ▌] {10}half way *\n"), "{}", s.screen(120).join("\n"));
 }
 
 #[test]
@@ -88,12 +88,14 @@ fn every_machines_tasks_say_whose_they_are_and_a_far_merge_says_where_it_lands()
     let now = sw::clock::now();
     let far = |items: serde_json::Value| Ok(json!({ "host": "otherbox", "version": "0.2.0", "tasks": items }));
     update(&mut s.s, Event::Remote { label: "otherbox".into(), answer: far(json!([{ "id": "proj/1", "title": "Far away", "state": "idle", "stage": "todo", "at": now, "created": now, "snap": { "folder": "~/far" } }])) });
-    s.press(&["alt+m"]); assert_eq!(s.s.scope, "*");
-    for width in [100, 40, 24] { assert!(s.screen(width)[0].contains("all machines: otherbox"), "at {width}: {}", s.screen(width)[0]); }
+    // Alt+M: every machine comes first in its round (this machine where herdr's sidebar has it).
+    while s.s.scope != "*" { s.press(&["alt+m"]); }
+    // whose board shows is the filter row's first item, never cut
+    for width in [100, 40, 24] { assert!(s.screen(width)[1].starts_with(" All machines │"), "at {width}: {}", s.screen(width)[1]); }
     s.s.sel = "otherbox:proj/1".into(); s.load();
     let t = s.screen(100).join("\n");
-    // Each machine under a heading of its own, its status groups under that: the row's tag is the number alone.
-    assert!(has(&t, r"\n ▾ otherbox ─+\n ▾ to do\n▌○ #1 +Far away "), "{t}"); assert!(!t.contains("otherbox#1") && !t.contains("otherbox Far away"));
+    // Each machine a step in under All machines, its status groups a step in under that: the row's tag is the number alone.
+    assert!(has(&t, r"\n   (○ |  )?▾ otherbox *\n     ▾ to do\n▌    ○ #1 +Far away "), "{t}"); assert!(!t.contains("otherbox#1") && !t.contains("otherbox Far away"));
     s.press(&["ctrl+f"]); s.typed("1");
     assert!(s.s.rows.iter().any(|r| matches!(r, sw::board::state::Row::Rec(o) if o.s("host") == "otherbox")), "find takes the number alone: no machine in it");
     s.press(&["esc"]);
@@ -112,18 +114,24 @@ fn every_machines_tasks_say_whose_they_are_and_a_far_merge_says_where_it_lands()
 }
 
 #[test]
-fn machine_names_too_long_for_the_header_go_on_whole_never_cut() {
+fn machine_names_too_long_for_a_line_are_shown_whole_never_cut() {
     let long = ["a-very-long-machine-name-on-the-tailnet", "another-extremely-long-machine-name-there"];
     let w = world_with(Opts { repo: true, settings: json!({ "board.machines": long.join(", ") }), ..Default::default() });
     w.add("Mine");
     let mut s = open(&w.root, 24); s.s.side = false;
     update(&mut s.s, Event::Machines(sw::remote::machines()));
     for m in long { update(&mut s.s, Event::Remote { label: m.into(), answer: Ok(json!({ "host": m, "version": "0.2.0", "tasks": [] })) }); }
-    s.press(&["alt+m"]); assert_eq!(s.s.scope, "*");
+    while s.s.scope != "*" { s.press(&["alt+m"]); }
+    // every machine: each under a heading of its own, its name whole
     for width in [80, 50] {
-        let head = regex::Regex::new(r"\s+").unwrap().replace_all(&s.screen(width)[..4].join(" "), " ").into_owned();
-        for name in long { assert!(head.contains(name), "{name} whole at {width}: {head}"); }
-        assert!(!has(&s.screen(width)[..4].join("\n"), "machine[^\n]*…"));
+        let t = s.screen(width).join("\n");
+        for name in long { assert!(t.lines().any(|l| l.contains(&format!("▾ {name}")) || l.contains(&format!("▸ {name}"))), "{name} whole at {width}: {t}"); }
+    }
+    // one machine by itself: its name is the filter row's first item, whole
+    for name in long {
+        while s.s.scope != name { s.press(&["alt+m"]); }
+        let l = s.screen(50)[1].clone();
+        assert!(l.starts_with(&format!(" {name} │")), "{l}");
     }
 }
 

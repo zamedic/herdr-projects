@@ -13,7 +13,7 @@ that keeps the thread.
 
 ## A project coordinator per repo
 
-Group by repo (`Alt+S`) and press `Space` on the repo's heading: you talk to that repo's own coordinator. It is a
+Group by repo (`Alt+S`) and press `Space` on the repo's row: you talk to that repo's own coordinator. It is a
 long-lived chat about that one repo, kept across restarts, beside the Coordinator and never mixed with it
 ([machine and project coordinators](machine-and-project-coordinators.md)).
 
@@ -46,7 +46,7 @@ herdr-projects add "Migration batch 2: the API" --repo my-app --after my-app/41 
 herdr-projects add "Migration batch 3: the screens" --repo my-app --after my-app/42 --delegate
 ```
 
-Start the first with `Tab` (or `herdr-projects delegate my-app/41`). Each of the others starts by itself once the one
+Start the first with `Ctrl+S` (or `herdr-projects delegate my-app/41`). Each of the others starts by itself once the one
 before it is done, and its agent's first prompt says what came before: that task's closing note and the pull request it
 merged in ([one task after another](after.md)). Or tell the coordinator "then", "once that is merged".
 

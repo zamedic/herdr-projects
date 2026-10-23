@@ -12,7 +12,7 @@ import { goTo } from "./talk.js";
 
 let root = null, timer = null, closing = null, snap = null, mark = "", busy = false;
 let menuOpen = false, picking = false, finding = false, seenMsg = -1, seenGo = null, chat = null, untrap = null, wentTo = 0;
-const drawn = { list: "", panel: "", settings: "", ask: "", menu: "", chips: "", pick: "" };
+const drawn = { list: "", panel: "", settings: "", ask: "", menu: "", chips: "", shows: "", pick: "" };
 const part = (name) => root.querySelector(`.sw-${name}`);
 
 export const isOpen = () => !!root;
@@ -28,18 +28,27 @@ function fit() {
   root.style.setProperty("--sw-left", root.style.left === "0" ? "0px" : root.style.left);
 }
 function note(text) { const n = part("note"); n.textContent = text || ""; n.hidden = !text; }
-// What the board shows beyond its plain view, each a chip whose × puts the plain view back. Whose tasks show (every
-// machine, or one other) is a chip too: a tap on it picks another, its × goes back to this machine's own.
+// What the board shows beyond its plain view, each a chip whose × puts the plain view back: the archive, a find, a
+// grouping other than by status.
 function chips() {
-  const f = snap.flags, head = snap.list.head, out = [];
+  const f = snap.flags, out = [];
   const chip = (text, title, fn) => h("button.sw-chip", { type: "button", title, onclick: fn }, text, h("span.sw-chip-x", { "aria-hidden": "true" }, "×"));
-  const scope = (text) => h("span.sw-chip.sw-chip-pick", h("button.sw-chip-main", { type: "button", title: "Pick whose tasks to show", "aria-haspopup": "dialog", onclick: () => { picking = true; draw(); } }, text, icon("down")),
-    h("button.sw-chip-x", { type: "button", title: "Show only this machine's tasks", "aria-label": "Show only this machine's tasks", onclick: () => scopeTo("") }, icon("close")));
   if (f.archive) out.push(chip("Archive", "Back to the board", () => press("archiveView")));
   if (f.filter) out.push(chip(`Find: ${f.filter}`, "Clear the filter", () => call("find", { text: "" })));
-  if (head.machines) out.push(scope("All machines"));
-  if (head.only) out.push(scope(`Only ${head.only}`));
-  if (f.byRepo) out.push(chip("By repo", "Group by status", () => press("byRepo")));
+  if (f.byRepo || f.byMachine) out.push(chip(f.byRepo ? "By repo" : "By machine", "Group by status", () => call("group")));
+  return out;
+}
+// The filter row under the header, as the terminal board's (webui/model/shows.rs): whose board first, where there is
+// another machine (a tap picks another, as the sidebar's Boards section does), then each filter with its count, the
+// one shown lit in its own colour. A tap shows a filter, as tab gets there. None in the archive.
+let litShown = "";
+function showsEl(shows) {
+  if (!shows) return [];
+  const m = shows.machine, out = [];
+  if (m) out.push(h(`button.sw-show.sw-show-machine${m.lit ? ".is-lit.sw-lit-text" : ""}${m.ok ? "" : ".is-off"}`, { type: "button", title: "Pick whose tasks to show", "aria-haspopup": "dialog", onclick: () => { picking = true; draw(); } }, h("span.sw-show-name", m.name), icon("down")),
+    h("span.sw-show-bar", { "aria-hidden": "true" }));
+  for (const it of shows.items) out.push(h(`button.sw-show${it.lit ? `.is-lit.sw-lit-${it.color}` : ""}${!it.lit && it.n && !it.count ? ".is-zero" : ""}`, { type: "button", "aria-pressed": String(it.lit), data: { n: it.n }, onclick: () => { if (!it.lit) call("show", { n: it.n }); } },
+    h("span.sw-show-long", it.name), h("span.sw-show-short", { "aria-hidden": "true" }, it.short), h(`span.sw-show-n${it.red && !it.lit ? ".sw-c-red" : ""}`, String(it.count))));
   return out;
 }
 // Whose tasks to show, as the sidebar's Boards section picks it: the picked board, drawn from the answer at once.
@@ -52,6 +61,13 @@ async function scopeTo(to) {
 // Wide, an open task stays open as the selection moves (the terminal board's side panel); on a phone, where it would
 // cover the list, a tap only selects.
 const wide = () => window.matchMedia?.("(min-width: 900px)").matches;
+// The list drawn again; a selection that moved (a key's doing: the next row after one archived) is brought into view.
+let selShown = "";
+function drawList(el) {
+  part("list-host").replaceChildren(el);
+  const sel = snap.list.selected || "";
+  if (sel !== selShown) { selShown = sel; [...el.querySelectorAll("[data-id]")].find((x) => x.dataset.id === sel)?.scrollIntoView?.({ block: "nearest" }); }
+}
 // Draw what changed. Each part is compared as text, so a tick that changed nothing touches nothing on the page.
 function draw() {
   if (!root || !snap) return;
@@ -61,7 +77,15 @@ function draw() {
   where.replaceChildren(...[head.where, head.where && head.whereKey ? h("span.sw-repo-key", ` · ${head.whereKey}`) : null, head.session ? `${head.where ? " · " : ""}session ${head.session}` : null].filter(Boolean));
   const once = (key, value, fn) => { const text = JSON.stringify(value); if (drawn[key] !== text) { drawn[key] = text; fn(); } };
   once("chips", [snap.flags, snap.list.head], () => part("chips").replaceChildren(...chips()));
-  once("list", [snap.list, !!snap.panel], () => part("list-host").replaceChildren(listEl(snap.list, { opened: snap.panel ? snap.list.selected : "", onPick: (id) => call("pick", { id, open: !!snap.panel && wide() }), onOpen: (id) => call("pick", { id, open: true }), onMore: () => press("allDone"), onFold: (id) => call("fold", { id }) })));
+  once("shows", snap.list.shows, () => {
+    const row = part("shows");
+    row.hidden = !snap.list.shows; row.replaceChildren(...showsEl(snap.list.shows));
+    // The filter shown stays in view where the row scrolls (a phone): brought there when another is lit.
+    const lit = row.querySelector(".sw-show.is-lit:not(.sw-show-machine)"), key = lit?.dataset.n || "";
+    if (lit && key !== litShown) { const l = lit.offsetLeft, r = l + lit.offsetWidth; if (l < row.scrollLeft || r > row.scrollLeft + row.clientWidth) row.scrollLeft = Math.max(0, l - 24); }
+    litShown = key;
+  });
+  once("list", [snap.list, !!snap.panel, snap.actions], () => drawList(listEl(snap.list, { opened: snap.panel ? snap.list.selected : "", onPick: (id) => call("pick", { id, open: !!snap.panel && wide() }), onOpen: (id) => call("pick", { id, open: true }), onMore: () => press("allDone"), onFold: (id) => call("fold", { id }), actions: snap.actions, onPress: press })));
   once("panel", [snap.panel, snap.actions, snap.canOpen, snap.role], () => { const el = panelEl(snap, { onPress: press, onMenu: () => { menuOpen = true; draw(); }, onClose: () => call("pick", { id: snap.list.selected, open: false }), onGo: (id) => call("pick", { id, open: true }) }); const host = part("task-host"), top = host.scrollTop; part("panel-host").replaceChildren(...(el ? [el] : [])); host.scrollTop = top; });
   // All settings stands under the task in a place of its own, drawn again only when a setting changed: what you
   // are typing into one of its boxes is not taken away by the task's status moving on.
@@ -72,8 +96,9 @@ function draw() {
   part("find-row").hidden = !finding;
   chat.update(snap);
   if (snap.msg && snap.msg.n !== seenMsg) { seenMsg = snap.msg.n; toast(part("toast-host"), snap.msg, () => press("back")); }
-  // Into a task's agent (Open agent): the web UI's own view of that pane (talk.js).
-  if (snap.go && seenGo !== null && snap.go.n !== seenGo) { seenGo = snap.go.n; return goTo(snap.go); }
+  // Into a task's agent (Open agent): the web UI's own view of that pane (talk.js). A task's link (Open the link): a
+  // tab of its own.
+  if (snap.go && seenGo !== null && snap.go.n !== seenGo) { seenGo = snap.go.n; return snap.go.url ? void window.open(snap.go.url, "_blank", "noopener") : goTo(snap.go); }
   seenGo = snap.go ? snap.go.n : 0;
 }
 function take(out) {
@@ -122,6 +147,8 @@ export function openBoard({ onClose }) {
       h("span.sw-head-space"),
       h("button.icon-button", { type: "button", "aria-label": "Find tasks", title: "Find tasks", onclick: () => { finding = !finding; draw(); if (finding) find.focus(); else if (snap?.flags.filter) { find.value = ""; call("find", { text: "" }); } } }, icon("find")),
       h("button.icon-button", { type: "button", "aria-label": "More", title: "More", "aria-haspopup": "dialog", onclick: () => { menuOpen = true; draw(); } }, icon("more"))),
+    // One row; the wheel scrolls it sideways where it does not fit (a mouse has no sideways swipe).
+    h("nav.sw-shows", { "aria-label": "Filters", hidden: true, onwheel: (e) => { const el = e.currentTarget; if (el.scrollWidth <= el.clientWidth || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return; e.preventDefault(); el.scrollLeft += e.deltaY; } }),
     h("div.sw-find-row", { hidden: true }, find),
     h("div.sw-chips"),
     h("p.sw-note", { hidden: true, role: "status" }),

@@ -28,7 +28,8 @@ pub fn menu_lines(s: &mut State, t: &Theme, width: usize, h: usize) -> Vec<Inked
     for (group, gname) in GROUPS {
         if !lines.is_empty() { lines.push(Inked::new()); }
         lines.push(Inked::plain(" ").add(Inked::of(group_name(group, gname), Ink::Soft)));
-        if group == "plain" { for (k, d) in &plain { lines.extend(entry(k, d)); } }
+        // Not a key of the board: typed first in the text box, it lists the skills of whom the chat talks to (skills.rs).
+        if group == "plain" { for (k, d) in &plain { lines.extend(entry(k, d)); } lines.extend(entry("/", "typed first: pick a skill of whom you talk to")); }
         for (n, it) in list.iter().enumerate() {
             if it.group != group { continue; }
             if n as i64 != at { lines.extend(entry(&it.key, &it.label)); continue; }
@@ -38,7 +39,7 @@ pub fn menu_lines(s: &mut State, t: &Theme, width: usize, h: usize) -> Vec<Inked
         }
     }
     // What a row shows: each mark in its colour with its word, the numbers on the right, and the tags.
-    let marks: [(Ink, &str, &str); 11] = [(Ink::Yellow, t.mark("working", ""), "an agent works"), (Ink::Review, t.mark("review", ""), "its reviewer works"), (Ink::Check, t.mark("board", ""), "the board's own step (it checks, waits for GitHub, merges)"), (Ink::Queue, t.mark("queue", ""), "queued: for a free slot (Q#1 next) or after other tasks"), (Ink::Red, t.mark("blocked", "question"), "asks you"), (Ink::Red, t.mark("blocked", "permission"), "asks for your OK"), (Ink::Red, t.mark("blocked", "auth"), "needs a login"), (Ink::Red, t.mark("error", ""), "went wrong"), (Ink::Green, t.mark("ready", ""), "ready to approve"), (Ink::Teal, t.mark("done", ""), "done"), (Ink::Todo, t.mark("idle", ""), "to do")];
+    let marks: [(Ink, &str, &str); 11] = [(Ink::Yellow, t.mark("working", ""), "an agent works"), (Ink::Review, t.mark("review", ""), "its reviewer works"), (Ink::Check, t.mark("board", ""), "the board's own step (it checks, waits for GitHub, merges)"), (Ink::Todo, t.mark("queue", ""), "queued: for a free slot (Q#1 next) or after other tasks"), (Ink::Red, t.mark("blocked", "question"), "asks you"), (Ink::Red, t.mark("blocked", "permission"), "asks for your OK"), (Ink::Red, t.mark("blocked", "auth"), "needs a login"), (Ink::Red, t.mark("error", ""), "went wrong"), (Ink::Green, t.mark("ready", ""), "ready to approve"), (Ink::Teal, t.mark("done", ""), "done"), (Ink::Todo, t.mark("idle", ""), "to do")];
     lines.push(Inked::new());
     lines.push(Inked::plain(" ").add(Inked::of("on a row", Ink::Soft)));
     for (c, m, w) in marks { lines.push(Inked::plain("   ").add(Inked::of(crate::text::pad(m, col), c)).add(Inked::of(w, Ink::Muted))); }
@@ -57,6 +58,8 @@ pub fn menu_lines(s: &mut State, t: &Theme, width: usize, h: usize) -> Vec<Inked
     lines.extend(entry("PR#16", "its pull request: green when its checks pass, red when they fail"));
     lines.extend(entry("[auto]", "made by an automation; [research]: research only, nothing is merged"));
     lines.extend(entry("[chat]", "a conversation: it changes nothing and ends when you say"));
+    // A machine's or a project's row is its coordinator's, with a task's marks; on autopilot, its tag and a line under it.
+    lines.extend(entry("[autopilot]", "a coordinator on autopilot (a machine's or a project's row): the line under it says what it does"));
     // The window: the title stays, and the picked line stays in view while the pick moves.
     let space = h.saturating_sub(1).max(1);
     let cut = lines.len() > space;

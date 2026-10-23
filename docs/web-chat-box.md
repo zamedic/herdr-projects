@@ -15,7 +15,7 @@ measured against the original.
 
 - **Enter sends, shift+enter is a new line**, on a phone too. If the web UI's Settings → Chat has "Enter sends" turned
   off, ctrl or cmd with enter sends here as well. A keyboard that composes letters keeps its enter.
-- **Tab, or Send + start**, only on a machine with no Coordinator: adds your words as a task and puts an agent on it
+- **Ctrl+S, or Send + start**, only on a machine with no Coordinator: adds your words as a task and puts an agent on it
   (more below). A coordinator gets your words with enter alone, and decides itself what to start.
 - **The grip** on the card's top edge makes the box taller: drag it up (up to half the window, 480 px at most).
   Double-click or tap it twice for the automatic height. With the keyboard: up and down a line (two with shift), and

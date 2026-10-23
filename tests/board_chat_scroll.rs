@@ -12,8 +12,7 @@ fn answer(n: usize) -> String { (1..=n).map(|i| format!("Line {i} of the answer.
 /// What the Coordinator says, whatever the board read: `raw`, it is a screen, not a message.
 struct Said { text: String, raw: bool, turn: String }
 /// A board whose chat says `said.text`. (The old test put these words in place of the chat's own; here they are the
-/// Coordinator's, as the loader would have read them: the box names who said them on its first line, "Coordinator:",
-/// and that line scrolls with the rest. Every line number below is one less than the old test's for that.)
+/// Coordinator's, as the loader would have read them: the box's edge names who said them, with no label inside.)
 struct B { b: Board, said: Said, _w: World }
 /// The chat as drawn: its box's first and last row on the screen, the message's lines, whether the box says there is
 /// more above and under, the draft, and the hints.
@@ -42,9 +41,14 @@ impl B {
         let lines = self.screen(width);
         let top = lines.iter().rposition(|l| has(l, "^╭─.*╮$")).expect("a box");
         let end = lines.iter().rposition(|l| has(l, "^╰─+╯$")).expect("a box's end");
-        let inside: Vec<String> = lines[top + 1..end].iter().map(|l| { let c: Vec<char> = l.chars().collect(); c[2..c.len() - 2].iter().collect::<String>().trim_end().to_string() }).collect();
+        let mut inside: Vec<String> = lines[top + 1..end].iter().map(|l| { let c: Vec<char> = l.chars().collect(); c[2..c.len() - 2].iter().collect::<String>().trim_end().to_string() }).collect();
+        // Its room to breathe (view/textbox.rs: chat_box): the second cell of padding, an empty row under its top edge
+        // and one over its bottom edge.
+        if width >= 30 { inside = inside.iter().map(|l| l.strip_prefix(' ').unwrap_or(l).to_string()).collect(); }
+        if inside.len() > 2 && inside[0].is_empty() && inside.last().is_some_and(|l| l.is_empty()) { inside.remove(0); inside.pop(); }
         let at = inside.iter().rposition(|l| has(l, r"^( *((alt\+j )?more )?↓)?$")).unwrap();
-        let message: Vec<String> = inside[..at].iter().filter(|l| !l.starts_with("Coordinator")).cloned().collect();
+        // Whose it is is the box's edge (view/chat_title.rs): inside, the message alone.
+        let message: Vec<String> = inside[..at].to_vec();
         Chat { up: lines[top].contains("more ↑") || lines[top].contains('↑'), down: inside[at].contains('↓'), draft: inside[at + 1..].to_vec(), message, top, end, lines }
     }
     fn first(&mut self) -> String { self.chat(120).message[0].clone() }
@@ -52,11 +56,12 @@ impl B {
 
 #[test]
 fn the_chats_box_grows_with_the_answer_up_to_two_thirds_of_the_window_and_shrinks_back_the_selected_task_stays_in_view() {
-    let mut b = B::new(30, 30);
-    // 40 lines in a window of 30 rows: the box takes 20 of them (16 of the message, its first line naming who), from the answer's first line.
+    let mut b = B::new(33, 30);
+    // 40 lines in a window of 33 rows: the box takes 22 of them (its edge naming whose it is, an empty row, then 16 of
+    // the message, where there is more, the line you type on, an empty row, its bottom), from the answer's first line.
     let c = b.chat(120);
-    assert_eq!(c.end - c.top + 1, 20); assert_eq!(c.message.len(), 15);
-    assert_eq!(c.message[0], "Line 1 of the answer."); assert_eq!(c.message.last().unwrap(), "Line 15 of the answer.");
+    assert_eq!(c.end - c.top + 1, 22); assert_eq!(c.message.len(), 16);
+    assert_eq!(c.message[0], "Line 1 of the answer."); assert_eq!(c.message.last().unwrap(), "Line 16 of the answer.");
     assert!(!c.up); assert!(c.down, "the box says there is more under it");
     // The list gave up the rows, and still shows the task that is selected, wherever it is.
     for n in [1, 15, 30] {
@@ -68,10 +73,10 @@ fn the_chats_box_grows_with_the_answer_up_to_two_thirds_of_the_window_and_shrink
     b.said.text = answer(12); let c = b.chat(120);
     assert_eq!(c.message.len(), 12); assert!(!c.up && !c.down);
     b.said.text = "Done.".into(); let c = b.chat(120);
-    assert_eq!(c.message, vec!["Done."]); assert_eq!(c.end - c.top + 1, 6, "a by-line, the message, an empty line, the line you type on");
+    assert_eq!(c.message, vec!["Done."]); assert_eq!(c.end - c.top + 1, 7, "its edge naming whose it is, an empty row, the message, an empty line, the line you type on, an empty row, its bottom");
     // A taller window shows more of a long one: two thirds of 60 rows.
     b.said.text = answer(40); b.b.rows = 60; let c = b.chat(120);
-    assert_eq!(c.end - c.top + 1, 40); assert_eq!(c.message.len(), 35);
+    assert_eq!(c.end - c.top + 1, 40); assert_eq!(c.message.len(), 34);
     // Under the whole task, which is there to be read itself, the chat folds to its head line: the page has the lines.
     b.b.rows = 30; b.key(&["alt+t"]); b.screen(120);
     assert!(b.b.s.full); assert!(b.b.s.chat_fit.is_none()); assert!(b.b.s.chat_rows.is_none());
@@ -79,17 +84,17 @@ fn the_chats_box_grows_with_the_answer_up_to_two_thirds_of_the_window_and_shrink
 
 #[test]
 fn alt_k_and_alt_j_scroll_a_message_longer_than_its_box_with_a_draft_too_the_box_says_where_there_is_more_a_new_message_keeps_the_place() {
-    let mut b = B::new(30, 30);
+    let mut b = B::new(33, 30);
     let (up, down) = (regex::escape(&key_name("chatScrollUp")), regex::escape(&key_name("chatScrollDown")));
     // The box names the key where there is more: under the message at first, on its top edge too once scrolled.
     let c = b.chat(120);
-    assert!(has(&c.lines[c.top], "^╭─[^\n]*╮$")); assert!(has(&c.lines[c.end - 2], &format!(" {down} more ↓ │$")), "{}", c.lines[c.end - 2]);
+    assert!(has(&c.lines[c.top], "^╭─[^\n]*╮$")); assert!(has(&c.lines[c.end - 3], &format!(" {down} more ↓  │$")), "{}", c.lines[c.end - 3]);
     // Down half a box at a time, to the end and no further.
     b.key(&["alt+j"]); let c = b.chat(120);
-    assert_eq!(c.message[0], "Line 8 of the answer."); assert!(c.up && c.down);
-    assert!(has(&c.lines[c.top], &format!("^╭─+ {up} more ↑ ─╮$")), "{}", c.lines[c.top]);
+    assert_eq!(c.message[0], "Line 9 of the answer."); assert!(c.up && c.down);
+    assert!(has(&c.lines[c.top], &format!("^╭─.* {up} more ↑ ─?╮$")), "{}", c.lines[c.top]);
     let edge = |b: &mut B, w: usize| b.chat(w).lines.into_iter().find(|l| l.contains('↑')).unwrap();
-    assert!(has(&edge(&mut b, 40), &format!("^╭─+ {up} more ↑ ─╮$"))); assert!(has(&edge(&mut b, 14), "^╭─+ more ↑ ─╮$")); assert!(has(&edge(&mut b, 9), "^╭─+ ↑ ─╮$"));
+    assert!(has(&edge(&mut b, 40), &format!("^╭─.* {up} more ↑ ─?╮$"))); assert!(has(&edge(&mut b, 14), "^╭─.* more ↑ ─?╮$"), "{}", edge(&mut b, 14)); assert!(has(&edge(&mut b, 9), "^╭─.*↑ ─?╮$"), "{}", edge(&mut b, 9));
     b.key(&["alt+j", "alt+j", "alt+j", "alt+j"]); let c = b.chat(120);
     assert_eq!(c.message.last().unwrap(), "Line 40 of the answer."); assert_eq!(c.message.len(), 16); assert!(c.up && !c.down);
     // alt+u no longer scrolls it (alt+k pairs with alt+j), and types nothing.
@@ -102,9 +107,9 @@ fn alt_k_and_alt_j_scroll_a_message_longer_than_its_box_with_a_draft_too_the_box
     let sel = b.b.s.sel.clone(); b.key(&["alt+j"]); assert_eq!(b.b.s.sel, sel); assert_eq!(b.b.s.value(), "");
     // With a draft in the text box the two keys still scroll, the box still names them, and the draft is whole.
     b.apply(); b.b.typed("my draft"); let c = b.chat(120);
-    assert!(has(&c.lines[c.top], &format!(" {up} more ↑ ─╮$")), "{}", c.lines[c.top]);
+    assert!(has(&c.lines[c.top], &format!(" {up} more ↑ ─?╮$")), "{}", c.lines[c.top]);
     b.key(&["alt+j"]); let c = b.chat(120);
-    assert_eq!(c.message[0], "Line 16 of the answer."); assert_eq!(b.b.s.value(), "my draft"); assert!(has(&c.draft.join(" "), "❯ my draft"));
+    assert_eq!(c.message[0], "Line 17 of the answer."); assert_eq!(b.b.s.value(), "my draft"); assert!(has(&c.draft.join(" "), "❯ my draft"));
     b.key(&["alt+k", "alt+k", "alt+k"]); assert_eq!(b.b.s.value(), "my draft"); assert_eq!(b.first(), "Line 1 of the answer.");
     // A message that fits has nothing to scroll: the keys do nothing, and are not typed into the draft.
     b.said.text = "Done.".into(); b.chat(120); b.key(&["alt+j", "alt+k"]); assert_eq!(b.b.s.value(), "my draft"); assert_eq!(b.chat(120).message, vec!["Done."]);
@@ -113,10 +118,10 @@ fn alt_k_and_alt_j_scroll_a_message_longer_than_its_box_with_a_draft_too_the_box
     // turn in the very same words, and for the same words after nothing was said a moment.
     // (alt+j at the end of the short one closed it to the newest: a long one then shows from its start.)
     b.said.text = answer(40); assert_eq!(b.first(), "Line 1 of the answer.");
-    b.key(&["alt+k"; 4]); b.key(&["alt+j"]); assert_eq!(b.first(), "Line 8 of the answer.");
-    b.said.text = answer(41); assert_eq!(b.first(), "Line 8 of the answer.");
-    b.said.turn = "turn-2".into(); assert_eq!(b.first(), "Line 8 of the answer.");
-    let words = b.said.text.clone(); b.said.text = String::new(); b.screen(120); b.said.text = words; assert_eq!(b.first(), "Line 8 of the answer.");
+    b.key(&["alt+k"; 4]); b.key(&["alt+j"]); assert_eq!(b.first(), "Line 9 of the answer.");
+    b.said.text = answer(41); assert_eq!(b.first(), "Line 9 of the answer.");
+    b.said.turn = "turn-2".into(); assert_eq!(b.first(), "Line 9 of the answer.");
+    let words = b.said.text.clone(); b.said.text = String::new(); b.screen(120); b.said.text = words; assert_eq!(b.first(), "Line 9 of the answer.");
     // The turn is the chat's own to name: the Coordinator's turn, and a task's handled turn.
     let t = sw::board::theme::Theme::default_dark(true);
     b.apply(); b.b.s.data.coord.said = "Done.".into(); b.b.s.data.coord.turn = Some(sw::agents::read_turn::Turn { id: "t-7".into(), ..Default::default() });
@@ -128,9 +133,9 @@ fn alt_k_and_alt_j_scroll_a_message_longer_than_its_box_with_a_draft_too_the_box
     // showed these words in the task's chat too; here the place a chat keeps is checked where it is kept: per chat, the
     // task's by its id.)
     assert_eq!(b.first(), "Line 1 of the answer.");
-    b.key(&["alt+j"]); assert_eq!(b.first(), "Line 8 of the answer.");
+    b.key(&["alt+j"]); assert_eq!(b.first(), "Line 9 of the answer.");
     b.apply();
-    let lines: Vec<String> = std::iter::once("Coordinator:".to_string()).chain(answer(41).lines().map(String::from)).collect();
+    let lines: Vec<String> = answer(41).lines().map(String::from).collect();
     let who = sw::board::view::chat::chat_of(&mut b.b.s, &t, None).unwrap();
     let fit = b.b.s.chat_fit.clone().unwrap();
     assert_eq!(sw::board::view::chat::chat_window(&mut b.b.s, &who, &lines, fit.rows, fit.latest), 8, "the same chat keeps its place");
@@ -145,13 +150,13 @@ fn alt_k_and_alt_j_scroll_a_message_longer_than_its_box_with_a_draft_too_the_box
 
 #[test]
 fn the_mouse_wheel_scrolls_the_chat_under_the_pointer_also_while_you_type_elsewhere_it_does_what_the_arrows_do() {
-    let mut b = B::new(30, 30);
+    let mut b = B::new(33, 30);
     let c = b.chat(120);
     // Over the chat (its box, and the line that says who): two lines a step.
-    b.wheel(c.top + 3, 1); assert_eq!(b.first(), "Line 2 of the answer.");
-    b.wheel(c.top - 1, 3); assert_eq!(b.first(), "Line 8 of the answer.");
-    b.wheel(c.end, -1); assert_eq!(b.first(), "Line 6 of the answer.");
-    b.apply(); b.b.typed("a draft"); b.wheel(c.top + 1, 2); assert_eq!(b.first(), "Line 10 of the answer."); assert_eq!(b.b.s.value(), "a draft");
+    b.wheel(c.top + 3, 1); assert_eq!(b.first(), "Line 3 of the answer.");
+    b.wheel(c.top - 1, 3); assert_eq!(b.first(), "Line 9 of the answer.");
+    b.wheel(c.end, -1); assert_eq!(b.first(), "Line 7 of the answer.");
+    b.apply(); b.b.typed("a draft"); b.wheel(c.top + 1, 2); assert_eq!(b.first(), "Line 11 of the answer."); assert_eq!(b.b.s.value(), "a draft");
     b.wheel(c.top + 1, -100); assert_eq!(b.first(), "Line 1 of the answer."); b.key(&["esc"]);
     // Over the list: the selection moves a task a step, and the message stays where it is.
     let ids: Vec<String> = b.b.s.rows.iter().filter_map(|r| if let sw::board::state::Row::Rec(x) = r { Some(x.t("id")) } else { None }).collect();

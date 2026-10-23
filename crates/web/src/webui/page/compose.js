@@ -22,10 +22,10 @@ export const enterSends = () => { try { return JSON.parse(localStorage.getItem("
 export const sendsOn = (e, enter = enterSends()) => e.key === "Enter" && !e.isComposing && e.keyCode !== 229 && !e.shiftKey && (enter ? !e.metaKey && !e.ctrlKey : !!(e.metaKey || e.ctrlKey));
 
 // `onSend(delegate)`: send what the box holds (true: and put an agent on what it adds). `onInput()`: its words changed.
-// `onTab()`: tab was pressed with words in the box; true when it sent them (then the focus stays in the box).
+// `onStart()`: ctrl+s was pressed with words in the box; true when it sent them (then the focus stays in the box).
 // `whom()`: who an attached file is for, `hold()`: its path must wait (files.js). `onGrow()`: its height was set again
 // (the room above a phone's keyboard may hold less: room.js). `call`: the voice call's button, beside the mic.
-export function composeEl({ onSend, onInput, onTab = () => false, whom = () => null, hold = () => false, onGrow = () => {}, call = null }) {
+export function composeEl({ onSend, onInput, onStart = () => false, whom = () => null, hold = () => false, onGrow = () => {}, call = null }) {
   let manual = savedHeight(), tapped = 0;
   const box = h("textarea.sw-input", { rows: 1, maxLength: LONGEST, spellcheck: false, autocapitalize: "off", autocorrect: "off", "aria-label": "Message" });
   const grip = h("div.sw-grip", { tabIndex: 0, role: "separator", "aria-orientation": "horizontal", "aria-label": "Resize message box", title: "Drag to resize · double-click to reset" });
@@ -75,8 +75,8 @@ export function composeEl({ onSend, onInput, onTab = () => false, whom = () => n
   box.addEventListener("input", () => { say(null); onInput(); grow(); });
   box.addEventListener("keydown", (e) => {
     if (sendsOn(e)) { e.preventDefault(); onSend(false); return; }
-    // Tab sends as the terminal board's does; with nothing typed, or where it does not apply, it moves on as tab does.
-    if (e.key === "Tab" && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey && !e.isComposing && box.value.trim() && onTab()) e.preventDefault();
+    // Ctrl+S sends and starts, as the terminal board's start key does (and the browser saves no page for it).
+    if (e.key.toLowerCase() === "s" && e.ctrlKey && !e.altKey && !e.metaKey && !e.isComposing && box.value.trim() && onStart()) e.preventDefault();
   });
   files.dropOn(card);
   // Sending keeps the focus in the box, as the web UI's Send does: a button that took it would close a phone's

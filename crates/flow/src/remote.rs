@@ -172,7 +172,7 @@ pub fn door_with(what: &str, req: &Value, bytes: &[u8]) -> Res<Value> {
         "add" => add::door(req), // a task the asking machine adds here (remote/add.rs)
         "hello" => Ok(json!({ "ok": true, "host": check::hostname(), "version": VERSION })), // the check a machine runs on itself (remote/check.rs)
         "do" if automations::is_automation_action(req.s("action")) => automations::automation_do(req), // an automation of this machine, not a task
-        "do" if req.s("action").starts_with("autopilot-") => crate::autopilot::far::door(req), // a coordinator's autopilot switched from another machine
+        "do" if req.s("action").starts_with("autopilot-") || req.s("action").starts_with("coordinator-") => crate::autopilot::far::door(req), // a coordinator's autopilot switched, or it started or stopped, from another machine
         "do" => {
             let t = find(req.s("id"))?;
             let id = t.t("id");
@@ -200,7 +200,7 @@ pub fn door_with(what: &str, req: &Value, bytes: &[u8]) -> Res<Value> {
                 "review" => ok(finish_line::send_review(&id)?.msg),
                 "finish" => ok(finish_line::finish_anyway(&id)?.msg),
                 "pin" => { let p = filing::pin(&id)?; ok(format!("{id}: {}", if p.b("pinned") { "pinned" } else { "unpinned" })) }
-                "stop" => { talk::stop(&id)?; ok(format!("{id}: stopped.")) }
+                "stop" => { let s = talk::stop(&id)?; ok(talk::stopped(&format!("{id}: stopped."), &s.msg)) }
                 // Where a task stands, whole, with its closing note: for a coordinator elsewhere that looks after it.
                 "details" => { let mut d = tidy(finish_line::details(&id)?); crate::autopilot::history::with_note(&mut d); Ok(json!({ "ok": true, "msg": "", "details": d })) }
                 // Going into a task from another machine: reopen its space and restart its exited agent here first,

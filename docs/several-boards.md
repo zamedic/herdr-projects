@@ -23,6 +23,6 @@ The header names the repo new tasks go to. Three ways to send one to another rep
   task's worktree is its repo. A board in a tab keeps the repo it opened in.
 - **Tell the Coordinator which repo**: "add this to gtm-agent" works from any repo. It adds the task with `--repo`, as
   you can yourself: `herdr-projects add "Fix the login" --repo gtm-agent`.
-- **Talk to the repo's own coordinator.** Group by repo (`Alt+S`) and press `Space` on the repo's heading. What you say
+- **Talk to the repo's own coordinator.** Group by repo (`Alt+S`) and press `Space` on the repo's row. What you say
   goes to that repo's project coordinator, and the tasks it adds are that repo's
   ([machine and project coordinators](machine-and-project-coordinators.md)).

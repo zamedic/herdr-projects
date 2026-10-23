@@ -1,33 +1,33 @@
- herdr-projects  proj · PRJ · 1 to do
-
- ◎   Coordinator · 1 other on                                               0 of 5 added  next in 1h
-     On · woke 0s ago: autopilot was turned on
-
- ◎ ▾ proj · PRJ                                                    1 of 5 added  ○ PRJ-1  next in 6h
-     On · woke 0s ago: autopilot was turned on
-▌○ PRJ-1 Fix the docs index                                                                   0s ago
-
+ herdr-projects  proj · PRJ
+ All 1   Coordinators 2   Needs you 0   Working 0   Ready 0   To do 1   Done 0   Automations 0
+ ○ ▾ HOST [autopilot]  1 project · 1 task · 2 on autopilot
+     Autopilot · next check-in in 1h · 0 of 5 today
+   ○ ▾ proj · PRJ [autopilot]
+       Autopilot · next check-in in 6h · 1 of 5 today
+▌    ○ PRJ-1 Fix the docs index                                                               0s ago
 
 
- ○ Coordinator  idle
-╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ ❯ Send message to Coordinator                                                                    │
+
+╭─  HOST ╮
+│                                                                                                  │
+│  ❯ Send message to the machine coordinator                                                       │
+│                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
-  tab put an agent on this task · space talk about this task · ? all keys
+  ctrl+s put an agent on this task · space talk about this task · ? all keys
 
- herdr-projects  proj · PRJ · 1 to do
-
- ◎   Coordinator · 1 other on   0 of 5 added  next in 1h
-     On · woke 0s ago: autopilot was turned on
-
- ◎ ▾ proj · PRJ        1 of 5 added  ○ PRJ-1  next in 6h
-     On · woke 0s ago: autopilot was turned on
-▌○ PRJ-1 Fix the docs index
-
+ herdr-projects  proj · PRJ
+ All 1   Coords 2   To do 1
+ ○ ▾ HOST [autopilot]  …
+     Autopilot · next check-in in 1h · 0 of 5 today
+  ○ ▾ proj · PRJ [autopilot]
+      Autopilot · next check-in in 6h · 1 of 5 today
+▌  ○ PRJ-1 Fix the docs index
 
 
- ○ Coordinator  idle
-╭──────────────────────────────────────────────────────╮
-│ ❯ Send message to Coordinator                        │
+
+╭─  HOST ╮
+│                                                      │
+│  ❯ Send message to the machine coordinator           │
+│                                                      │
 ╰──────────────────────────────────────────────────────╯
-  tab put an agent on this task · ? all keys
+  ctrl+s put an agent on this task · ? all keys

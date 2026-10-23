@@ -39,8 +39,11 @@ fn what_you_say_is_never_lost_a_dialog_on_its_screen_holds_it_a_failed_start_say
     tell(&w, &w.root, "first", false); drain();
     assert_eq!(get(&w).arr("queue").len(), 1); assert_eq!(look(&so).state, "blocked");
     let mut s = open(&w.root, 34);
-    assert!(has(&s.text(), r"\n[ ▌]. Coordinator {2}asks you · 1 message waits to be sent *\n╭─[^\n]*╮\n"), "{}", s.text());
-    s.press(&["alt+c"]); assert!(has(&s.text(), r"\n[ ▌]. Coordinator {2}asks you · 1 message waits to be sent *\n─[^\n]*\n❯ "), "{}", s.text());
+    // its row (the top row) has the mark of one that wants your OK, as a task's would, and no line under it
+    assert!(has(&s.text(), r"\n[ ▌]! [▾▸] [^\n]*\n") && !s.text().contains("wants your OK"), "{}", s.text());
+    let host = regex::escape(&sw::shown::words::clean(&sw::remote::check::hostname()));
+    assert!(has(&s.text(), &format!(r"\n╭─  {host}  · Machine coordinator ─*╮\n(?:│ +│\n)?")) && !s.text().contains(&format!("│ {}.", crate::board_chat::top_name())), "{}", s.text());
+    s.press(&["alt+c"]); assert!(has(&s.text(), r"\n╭─[^\n]*╮\n(?:│ +│\n)?│ +❯ "), "{}", s.text());
     // herdr's sidebar names it and says where it stands in the same words
     sw::coordinator::sidebar::tell_sidebar(&so);
     let meta = |w: &World| w.state().arr("metadata").last().map(|m| m.arr("args").iter().map(text).collect::<Vec<_>>().join(" ")).unwrap_or_default();
@@ -80,7 +83,7 @@ fn what_you_say_is_never_lost_a_dialog_on_its_screen_holds_it_a_failed_start_say
     drain();
     assert_eq!(look(&so).state, "working");
     assert_eq!(said(&w), (1..=7).map(|n| format!("busy {n}")).collect::<Vec<_>>(), "all seven it still has ahead of it");
-    assert!(has(&where_text(&so), r#"- "busy 1" was sent from the repo "elsewhere"[^\n]*It was sent with tab"#));
+    assert!(has(&where_text(&so), r#"- "busy 1" was sent from the repo "elsewhere"[^\n]*It was sent with ctrl\+s"#));
     // There is no number at which one it has not dealt with is let go.
     w.script(json!({ "coordinator": (0..61).map(|_| json!({ "status": "working" })).collect::<Vec<_>>() }));
     for n in 8..=68 { tell(&w, &w.root, &format!("busy {n}"), false); }
@@ -113,14 +116,16 @@ fn what_you_say_is_never_lost_a_dialog_on_its_screen_holds_it_a_failed_start_say
     sw::coordinator::requests::fresh(pick_of("pi", "").unwrap(), &so).unwrap(); tell(&w, &w.root, "second", false); drain();
     assert!(has(&look(&so).error, r#""pi" is not installed here"#), "{}", look(&so).error); assert_eq!(get(&w).arr("queue").len(), 1);
     s.load();
-    assert!(has(&s.text(), r#"Coordinator {2}could not be started[^\n]*\n╭─[^\n]*╮\n│ It could not be started: "pi" is not installed here"#), "also with its message hidden: {}", s.text());
+    // its row says so with a task's mark for it, and the box says why, also with its message hidden
+    assert!(has(&s.text(), r"\n[ ▌]✗ [▾▸] "), "{}", s.text());
+    assert!(has(&s.text(), r#"\n╭─[^\n]*╮\n(?:│ +│\n)?│ +It could not be started: "pi" is not installed here"#), "also with its message hidden: {}", s.text());
     // alt+c hides that too, as the chat's line says, and so does esc with nothing else to step back from.
     s.s.chat_open = false; s.s.input.set_text(""); s.s.reply = false; s.s.full = false; s.s.filter = String::new(); s.s.msg = String::new();
     let chat_key = regex::escape(&key_name("chatMessage"));
     assert!(has(&s.text(), &format!("{chat_key} hide the latest message")), "{}", s.text());
     s.press(&["esc"]); assert!(s.s.ask.is_none() && !s.closed && s.s.closing.is_none());
     assert!(!s.text().contains("It could not be started:"));
-    assert!(has(&s.text(), &format!(r"Coordinator {{2}}could not be started[^\n]*\n─[^\n]*\n❯ [^\n]*\n─+\n[^\n]*{chat_key} show the latest message")), "{}", s.text());
+    assert!(has(&s.text(), &format!(r"\n[ ▌]✗ [▾▸] [^\n]*\n(?:[^\n]*\n)*╭─[^\n]*╮\n(?:│ +│\n)?│ +❯ [^\n]*\n(?:│ +│\n)?╰─+╯\n[^\n]*{chat_key} show the latest message")), "{}", s.text());
     s.load(); assert!(!s.text().contains("It could not be started:"), "the same error stays hidden");
     s.press(&["esc"]); s.s.closing = None;
     // alt+c shows it again and hides it again, shown by the setting or not.
@@ -135,7 +140,7 @@ fn turning_the_coordinator_on_while_the_board_is_open_takes_effect_at_once_and_o
     use sw::store::settings::{change::{set_value, unset_value}, lookup::Scope};
     let w = coord_world_with(json!({ "coordinator.agent": "none" }));
     let mut s = open(&w.root, 34);
-    assert!(has(&s.text(), r"\n *\n \+ New task {2}added word for word *\n─[^\n]*\n❯ Add a task *\n"), "{}", s.text()); assert!(!s.text().contains("Coordinator"));
+    assert!(has(&s.text(), r"\n─[^\n]*\n❯ Add a task *\n"), "{}", s.text()); assert!(!s.text().contains("coordinator") && !s.text().contains("Coordinator "), "{}", s.text());
     s.typed("first thing"); s.press(&["enter"]);
     assert_eq!(task("proj/1").s("title"), "first thing"); assert!(state::get(&w.socket).is_none());
     unset_value("coordinator.agent", &Scope::you()).unwrap(); // the board stays open
@@ -151,9 +156,9 @@ fn turning_the_coordinator_on_while_the_board_is_open_takes_effect_at_once_and_o
     s.typed("third thing"); s.press(&["enter"]);
     assert_eq!(task("proj/2").s("title"), "third thing"); assert_eq!(agents(&w)[0].at("agent").arr("prompts").len(), 1);
     // And your next message turns up a Coordinator that was switched on after the board opened.
-    let mut off = open(&w.root, 34); assert!(!off.s.data.can_dispatch); assert!(off.text().contains("+ New task"));
+    let mut off = open(&w.root, 34); assert!(!off.s.data.can_dispatch); assert!(off.text().contains("❯ Add a task"), "{}", off.text());
     unset_value("coordinator.agent", &Scope::you()).unwrap();
     off.load(); off.typed("fourth thing"); off.press(&["enter"]); drain(); off.load();
-    assert!(off.s.data.can_dispatch); assert!(has(&off.text(), r"\n[ ▌]. Coordinator {2}"), "{}", off.text());
+    assert!(off.s.data.can_dispatch); assert!(has(&off.text(), &format!(r"\n╭─  {}  · Machine coordinator ─*╮\n", regex::escape(&sw::shown::words::clean(&sw::remote::check::hostname())))), "{}", off.text());
     assert_eq!(get(&w).arr("where").last().map(|x| x.t("said")).unwrap_or_default(), "fourth thing");
 }

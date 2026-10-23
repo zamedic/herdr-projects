@@ -27,7 +27,7 @@ pub fn machines(s: &mut State, list: Vec<Machine>, fx: &mut Vec<Effect>) {
     }
     // The scope key asked for the machines: every machine shows once there is another one.
     if std::mem::take(&mut s.seeking) {
-        if alone { s.flash(none_said(), Ink::Yellow); } else { set_scope(s, "*".into(), fx); }
+        if alone { s.flash(none_said(), Ink::Yellow); } else { set_scope(s, "*".into(), fx); let said = scope_said(s); s.flash(said, Ink::Muted); }
     }
     relist(s);
     fx.push(Effect::Poll(true));
@@ -82,12 +82,14 @@ pub fn shown(s: &State, host: &str) -> String { sidebar::shown_as(&super::heads:
 pub fn others(s: &State) -> Vec<&Remote> { let mut v: Vec<&Remote> = s.remotes.values().collect(); v.sort_by_key(|m| place(s, &m.machine.label)); v }
 /// The machines in view: all the others with every machine shown, else the one shown.
 pub fn in_view(s: &State) -> Vec<&Remote> { if s.scope == "*" { others(s) } else { s.remotes.get(&s.scope).into_iter().collect() } }
-/// Whose board, in turn: this machine, every machine, then each other machine by itself. Every machine is in it only
-/// while there is another one.
+/// Whose board, in turn: every machine, then each machine by itself (this one too) in the order of herdr's sidebar.
+/// Every machine is in it only while there is another one.
 pub fn scope_next(s: &State) -> String {
     let others: Vec<String> = others(s).into_iter().map(|m| m.machine.label.clone()).collect();
     let every = (!others.is_empty()).then(|| "*".to_string());
-    let ring: Vec<String> = std::iter::once(String::new()).chain(every).chain(others).collect();
+    let mut each: Vec<String> = std::iter::once(String::new()).chain(others).collect();
+    each.sort_by_key(|h| place(s, h));
+    let ring: Vec<String> = every.into_iter().chain(each).collect();
     let at = ring.iter().position(|x| *x == s.scope).unwrap_or(0);
     ring[(at + 1) % ring.len()].clone()
 }
@@ -100,10 +102,14 @@ pub fn next_scope(s: &mut State, fx: &mut Vec<Effect>) {
     s.seeking = true; fx.push(Effect::Poll(true));
     s.flash("Looking for other machines…".to_string(), Ink::Muted);
 }
+/// Whose board shows, picked: no line confirms it (the filter row's first item says whose it is, the chat's switch who
+/// gets your words). Where the board moved by itself (the machines found after the scope key asked for them, the web
+/// board following the web UI), its caller says so: scope_said.
 pub fn set_scope(s: &mut State, to: String, fx: &mut Vec<Effect>) {
     s.scope = to; fx.push(Effect::Save);
     if s.all() { fx.push(Effect::Poll(true)); }
-    let said = if s.scope.is_empty() { "This machine only.".to_string() } else if s.scope == "*" { "Every machine you can reach.".into() } else { format!("Only {}. What you type goes to {}.", s.scope, s.scope) };
-    s.flash(said, Ink::Muted);
     relist(s);
+}
+pub fn scope_said(s: &State) -> String {
+    if s.scope.is_empty() { "This machine only.".to_string() } else if s.scope == "*" { "Every machine you can reach.".into() } else { format!("Only {}. What you type goes to {}.", s.scope, s.scope) }
 }

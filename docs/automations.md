@@ -183,20 +183,20 @@ is no separate list behind a key any more: `Alt+O` is no key of the board.)
 
   One that turned itself off says why on a line under its row. One that is off is drawn as quietly as a done task. In a
   window too narrow for the trigger beside the name, the trigger goes on a line under it.
-- **A colour of its own**: the heading, the marks and the `[auto]` tag of a task one made are a purple that no status has
-  ([colours](colours.md)).
+- **A colour of its own**: the heading and the marks are a purple that no status has ([colours](colours.md)). The
+  `[auto]` tag of a task one made is dimmed, as every tag is.
 - **Keys**, once the row is selected (`↑` `↓` reach it where it stands, or a click):
 
   | Key | Does |
   |---|---|
   | `Enter` | open it |
   | `Space` | turn it on or off |
-  | `Tab` | fire it now |
+  | `Ctrl+S` | fire it now |
   | `Ctrl+X` | remove it (it asks first, as removing a task does; the tasks it made stay) |
   | `Ctrl+E` | its settings |
 
   The hint line shows these keys while such a row is selected, and only the ones that act (an automation that is off
-  never fires, so `Tab` is not offered). The `?` menu lists them in the same words. A key that acts on a task (approve,
+  never fires, so `Ctrl+S` is not offered). The `?` menu lists them in the same words. A key that acts on a task (approve,
   send back, archive, pin) does nothing on it.
 - **One automation, whole** (`Enter`, or `Alt+T`; beside the list with `Alt+P` on a wide screen): its state, its trigger,
   when it is next due, its repo, its prompt, its own settings (marked `*`), and its firings, newest first, each with the
@@ -208,7 +208,7 @@ is no separate list behind a key any more: `Alt+O` is no key of the board.)
 - **Making and rewording one** goes through the Coordinator's text box. On an automation's row no task is selected, so
   what you type goes where it goes with no task selected: to the Coordinator, or, with none on, added as a task word for
   word (then make the automation with the command).
-- **A task an automation made says so**: `[auto]` after its name on its row, in the automations' colour, and `Made by`
+- **A task an automation made says so**: `[auto]` after its name on its row, dimmed, and `Made by`
   in its panel's Status, naming the automation.
 - **Other machines' automations** show with their tasks, in that machine's part of the list
   ([other machines](other-machines.md)); one machine's own board shows only its own. The keys are the same from inside

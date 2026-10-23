@@ -11,7 +11,7 @@ Every action is still a key. The keys that scroll the chat without a mouse, `Alt
 
 ## The wheel
 
-- **Over the chat** (the line that says who you talk to, and its box): it scrolls a message that is longer than its
+- **Over the chat** (its box, whose edge says who you talk to): it scrolls a message that is longer than its
   box, two lines a step, faster when you spin it. It works while you type, and never touches your draft.
 - **Anywhere else** it does what `↑` and `↓` do. Over the list it moves the selection one task a step. On the
   whole-task page (`Alt+T`) it scrolls the page, two lines a step, also with a draft in the text box. In the `?` menu it
@@ -27,6 +27,8 @@ wheel must not send your answer to another agent. The next key brings the view b
 - **A click on a task's row selects it**, like `↑` and `↓`. On the selected row it does nothing more.
 - **A click on a heading folds it**, or unfolds it, like `Enter` on it ([list headings](list-headings.md)).
 - With words in the box, a click selects nothing and the board says why: `Send or put away what you typed first`.
+- **A click on the filter row** shows that filter, and on its first item goes round the machines as `Alt+M` does
+  ([the board](board.md#the-filter-row)).
 - A click anywhere else (the header, the chat, the task panel) does nothing.
 
 ## Selecting and copying
@@ -49,7 +51,8 @@ What this changes for you:
   the mouse, so hold the terminal's modifier as anywhere in Herdr: `Shift` and drag in most terminals, `Option` in
   iTerm2, `Fn` in macOS Terminal.
 - **Links** (the pull request, the evidence links) are terminal links (OSC 8). Clicking one is the terminal's job
-  (`Cmd`+click on a Mac), as before. A plain click on a link reaches the board, which does nothing with it.
+  (`Cmd`+click on a Mac), as before. A plain click on a link reaches the board, which does nothing with it. A task's
+  report or pull request also opens with a key, `Ctrl+D` ([research.md](research.md#where-a-report-goes)).
 - **The wheel over the list moves the selection**, as it did before: Herdr used to turn the wheel into `↑` and `↓`.
 - **Some terminals copy nothing on OSC 52** (macOS Terminal; tmux without `set-clipboard on`). There the highlight shows
   but nothing is copied. Herdr's own copy works the same way, so a terminal that copied from Herdr copies from the

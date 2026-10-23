@@ -42,7 +42,7 @@ fn one_automation_whole_its_prompt_trigger_own_settings_and_firings_and_enter_on
     for line in [r"\n State {8}✓ on\n", r"\n Trigger {6}every 2h\n", r"\n Next {9}in 2h · ", r"\n Repo {9}proj · ", r"\n Prompt ─+\n Check which dependencies are out of date\.\n Open one pull request per major bump\.\n",
         &format!(r"\n Settings ─+\n reviewer\.agent {{2}}claude \*\n merge\.by {{8}}itself \*\n \* this automation's own, put on each task it makes\. {} changes them\n", regex::escape(&key_name("settings")))] { like(&text, line); }
     like(&text, r"\n Firings ─+\n[ ▌] {2}\d+s ago {3}every 2h {2}→ made PRJ-2\n[ ▌] {2}\d+s ago {3}every 2h {2}skipped: its last task, PRJ-1, is still being worked on\n[ ▌] {2}\d+s ago {3}run now {2}→ made PRJ-1\n");
-    assert_eq!(last(&mut s), "  ↑↓ pick a firing · space turn this automation off · tab fire it now · esc back to the list");
+    assert_eq!(last(&mut s), "  ↑↓ pick a firing · space turn this automation off · ctrl+s fire it now · esc back to the list");
     // the arrows pick a firing; enter on a skipped one says so, on one that made a task goes to that task in the list
     s.press(&["enter"]); assert!(t(&mut s, 120).contains("↑ ↓ pick a firing; enter then goes to the task it made."));
     s.press(&["down"]); like(&t(&mut s, 100), r"\n › \d+s ago {3}every 2h {2}→ made PRJ-2"); like(&last(&mut s), r"↑↓ pick a firing · enter go to its task · space");
@@ -50,7 +50,7 @@ fn one_automation_whole_its_prompt_trigger_own_settings_and_firings_and_enter_on
     s.press(&["ctrl+f", "alt+a"]); assert!(s.s.mode == sw::board::state::Mode::New); assert!(!s.s.archive_view, "a key of the list does nothing while one is open");
     s.press(&["down", "down", "enter"]); // the last one, and no further
     assert!(!s.s.auto_open); assert_eq!(s.s.sel, first.t("task")); assert_eq!(s.s.current().unwrap().s("id"), "proj/1");
-    like(&t(&mut s, 120), r"\n▌. PRJ-1 Look for old dependencies \[auto\]");
+    like(&t(&mut s, 120), r"\n▌ *. PRJ-1 Look for old dependencies \[auto\]");
     // a task that was archived since is found in the archive
     // (a key reads no file in the Rust board: the archiving is seen by the next load, as the board's beat would)
     sw::store::tasks::patch(second.s("task"), |t| t.put("archivedAt", sw::clock::now())).unwrap(); pick(&mut s, &row_id(&a));
@@ -59,7 +59,7 @@ fn one_automation_whole_its_prompt_trigger_own_settings_and_firings_and_enter_on
     pick(&mut s, &row_id(&a)); s.s.side = true;
     let wide = s.screen(150);
     let re = |r: &str| regex::Regex::new(r).unwrap();
-    assert!(wide.iter().any(|l| re(r"^▌⟳ on {4}Look for old dependencies .*│ {2}Look for old dependencies").is_match(l)) || (wide.iter().any(|l| re(r"^▌⟳ on {4}Look for old dependencies ").is_match(l)) && re(r"│ {2}Look for old dependencies").is_match(&wide[1])), "{}", wide.join("\n"));
+    assert!(wide.iter().any(|l| re(r"^▌ *⟳ on {4}Look for old dependencies .*│ {2}Look for old dependencies").is_match(l)) || (wide.iter().any(|l| re(r"^▌ *⟳ on {4}Look for old dependencies ").is_match(l)) && re(r"│ {2}Look for old dependencies").is_match(&wide[1])), "{}", wide.join("\n"));
     assert!(wide.iter().any(|l| re(r"│ {2}Firings ─").is_match(l)));
     // alt+t opens and folds it as it does a task; esc goes from the whole automation back to the list, and no further
     s.press(&["alt+t"]); assert!(s.s.auto_open); s.press(&["alt+t"]); assert!(!s.s.auto_open);
@@ -73,7 +73,7 @@ fn an_automations_settings_are_the_page_a_task_has_its_own_rows_marked_a_row_cha
     let w = world();
     let a = three(&w).remove(0);
     sw::store::settings::change::set_value("review.rounds", &json!(5), &sw::store::settings::lookup::Scope::you()).unwrap();
-    let mut s = open(&w.root, 64); s.s.side = false;
+    let mut s = open(&w.root, 65); s.s.side = false;
     let row_of = |s: &mut Board, name: &str| -> String { let re = regex::Regex::new(&format!(" {}( |$)", regex::escape(name))).unwrap(); s.screen(120).into_iter().find(|l| re.is_match(l)).unwrap_or_default() };
     let names = |s: &Board| -> Vec<String> { sw::board::update::edit::rows(&s.s).iter().map(|x| x.t("name")).collect() };
     let at = |s: &Board| s.s.editing.as_ref().unwrap().at;
@@ -104,7 +104,7 @@ fn an_automations_settings_are_the_page_a_task_has_its_own_rows_marked_a_row_cha
     // esc: back to the whole automation, then the list
     s.press(&["esc"]); assert!(s.s.editing.is_none()); like(&t(&mut s, 120), r"^ Automation {2}Look for old dependencies"); s.press(&["esc"]); assert!(!s.s.auto_open);
     // the next task has them as its own
-    s.press(&["tab"]); assert_eq!(task("proj/1").at("settings"), &json!({ "reviewer.agent": "claude", "review.when": "never" }));
+    s.press(&["ctrl+s"]); assert_eq!(task("proj/1").at("settings"), &json!({ "reviewer.agent": "claude", "review.when": "never" }));
 }
 
 #[test]
@@ -119,13 +119,13 @@ fn a_task_an_automation_made_says_so_and_with_the_board_open_a_schedule_fires_by
     sw::clock::advance(2 * HOUR + 1000); beat(&mut s); // no keeper runs: the open board fires what is due
     assert_eq!(sw::store::tasks::list(Default::default()).iter().map(|t| (t.t("id"), t.t("title"), t.t("stage"))).collect::<Vec<_>>(), [("proj/1".to_string(), "Look for old dependencies".to_string(), "starting".to_string())]);
     assert_eq!(firings_of(a.s("id"))[0].s("cause"), "schedule");
-    like(&t(&mut s, 120), r"\n[ ▌]. PRJ-1 Look for old dependencies \[auto\] ");
-    like(&t(&mut s, 120), r"\n[ ▌]⟳ on {4}Look for old dependencies {2}every 2h +◇ PRJ-1 next in +\d");
+    like(&t(&mut s, 120), r"\n[ ▌] *. PRJ-1 Look for old dependencies \[auto\] ");
+    like(&t(&mut s, 120), r"\n[ ▌] *⟳ on {4}Look for old dependencies {2}every 2h +◇ PRJ-1 next in +\d");
     assert_eq!(s.s.sel, row_id(&a), "the selection stayed on the automation: a task it makes does not take it");
     s.press(&["up", "up"]); assert_eq!(s.s.sel, "proj/1"); s.press(&["alt+t"]); like(&t(&mut s, 120), "\n Made by {6}the automation \"Look for old dependencies\"\n"); s.press(&["esc"]);
     // on an automation's row with no Coordinator on, what is typed is a new task, as anywhere with no task selected
     s.press(&["down", "down"]); s.typed("tidy up");
-    assert_eq!(last(&mut s), "  enter add it as a task · tab add it and put an agent on it · shift+enter new line · esc put away");
+    assert_eq!(last(&mut s), "  enter add it as a task · ctrl+s add it and put an agent on it · shift+enter new line · esc put away");
     s.press(&["enter"]);
     let mut titles: Vec<String> = sw::store::tasks::list(Default::default()).iter().map(|t| t.t("title")).collect(); titles.sort();
     assert_eq!(titles, ["Look for old dependencies", "tidy up"]); assert_eq!(automations().len(), 3);

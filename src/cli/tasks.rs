@@ -1,7 +1,7 @@
 //! The commands on tasks and settings: each returns what --json prints and what a person reads.
 use super::flags::{pick_choices, Args};
 use super::{caller, context_folder};
-use crate::actions::{archive, archive_done, filing, finish_line, settings::{settings_command, Where}, start, talk};
+use crate::actions::{archive, archive_done, archive_project, filing, finish_line, settings::{settings_command, Where}, start, talk};
 use crate::board::keys::key_name;
 use crate::err::Res;
 use crate::flow::live::board;
@@ -64,7 +64,7 @@ pub fn command(cmd: &str, a: &Args) -> Res<(Value, String)> {
             };
             // Added from a coordinator's pane, in any turn: its own, which its autopilot's `added` never wakes it for.
             if let (None, Some(co)) = (&pilot, crate::autopilot::turn::caller()) { crate::store::tasks::set(t.s("id"), json!({ "coordinator": co.settings_key() }))?; }
-            // Added by the Coordinator from a message the human sent with tab: delegated here, flag or no flag.
+            // Added by the Coordinator from a message the human sent with the start key: delegated here, flag or no flag.
             let mut tab = false;
             if !flags.b("delegate") && !crate::util::env_set("HERDR_PLUGIN_ID") { if let Some(p) = crate::util::env_val("HERDR_PANE_ID") { tab = crate::coordinator::requests::tab_turn(&p, &current_socket()); } }
             let after = after.filter(|d| !d.is_empty());
@@ -88,7 +88,8 @@ pub fn command(cmd: &str, a: &Args) -> Res<(Value, String)> {
         // Suggested tasks were taken out of the board. An agent started before that is told so in a plain sentence.
         "suggest" | "suggestions" | "accept" | "dismiss" => crate::fail!("There is no \"{cmd}\" command any more: suggested tasks were removed from the board. Mention work you came across outside your task in a short \"Also noticed\" list in your closing note or your report, and carry on with your own task."),
         "report" => {
-            let me = caller().filter(|c| c.1 == "agent").map(|c| c.0);
+            let who = me.clone();
+            let me = who.clone().filter(|c| c.1 == "agent").map(|c| c.0);
             if pos.get(1).is_none() && flags.b("title") && me.is_none() {
                 let title = flag("title").unwrap_or_default();
                 let t = filing::add(&here, &title, filing::AddOpts { description: flag("msg").or_else(|| flag("desc")).unwrap_or_default(), repo: flag("repo").unwrap_or_default(), ..Default::default() })?;
@@ -96,8 +97,10 @@ pub fn command(cmd: &str, a: &Args) -> Res<(Value, String)> {
             }
             let id = pos.get(1).cloned().or_else(|| me.as_ref().map(|m| m.t("id"))).ok_or_else(|| crate::err::Error::from("report needs an id, or --title to add a new task."))?;
             let target = find(&id)?;
-            let mine = me.as_ref().map(|m| m.s("id") == target.s("id")).unwrap_or(false);
-            let t = filing::report(target.s("id"), filing::Report { state: flag("state").unwrap_or_default(), kind: flag("kind").unwrap_or_default(), msg: flag("msg").unwrap_or_default(), title: flag("title").unwrap_or_default(), progress: flags.get("progress").cloned(), eta: flags.get("eta").cloned(), as_agent: mine })?;
+            // Run from the task's own agent's or reviewer's pane: it may not mark its own task done (filing.rs).
+            let own = who.filter(|c| c.0.s("id") == target.s("id")).map(|c| c.1).unwrap_or("");
+            let mine = own == "agent";
+            let t = filing::report(target.s("id"), filing::Report { state: flag("state").unwrap_or_default(), kind: flag("kind").unwrap_or_default(), msg: flag("msg").unwrap_or_default(), title: flag("title").unwrap_or_default(), progress: flags.get("progress").cloned(), eta: flags.get("eta").cloned(), own })?;
             let what = [flag("title").map(|_| "title".to_string()), flag("state")].into_iter().flatten().collect::<Vec<_>>().join(", ");
             let text = if mine && flag("state").as_deref() == Some("blocked") { "Reported: you are waiting, not finished, so no check and no review follow this stop. Stop now; the human's answer arrives as your next message.".to_string() }
                 else { format!("{}: updated{}{}", t.s("id"), if what.is_empty() { String::new() } else { format!(" ({what})") }, flag("title").map(|x| title_note(&x)).unwrap_or_default()) };
@@ -121,7 +124,7 @@ pub fn command(cmd: &str, a: &Args) -> Res<(Value, String)> {
             (shown_of(t.s("id")), msg)
         }
         "tell" => { let id = need(1, "an id")?; need(2, "the text")?; said(talk::reply(&id, &rest(2), talk::asker())?) }
-        "stop" => { let t = talk::stop(&need(1, "an id")?)?; (shown_of(t.s("id")), format!("{}: stopped", t.s("id"))) }
+        "stop" => { let s = talk::stop(&need(1, "an id")?)?; (shown_of(s.task.s("id")), talk::stopped(&format!("{}: stopped", s.task.s("id")), &s.msg)) }
         "start" => { let t = filing::start_human(&need(1, "an id")?)?; (shown_of(t.s("id")), format!("{}: in progress", t.s("id"))) }
         "pick" => said(crate::attempts::settle::pick(&need(1, "an id")?, &pos.get(2).cloned().unwrap_or_default())?),
         "approve" => said(finish_line::approve(&need(1, "an id")?, None, flags.at("anyway") == &json!(true))?),
@@ -138,10 +141,15 @@ pub fn command(cmd: &str, a: &Args) -> Res<(Value, String)> {
             let r = archive_done::archive_done(flag("repo").as_deref())?;
             (r.json(), r.said)
         }
-        "archive" => {
-            if flags.has("repo") { crate::fail!("--repo goes with --done: herdr-projects archive --done --repo NAME"); }
-            let t = archive::archive(&need(1, "an id")?)?; (shown_of(t.s("id")), format!("{}: archived", t.s("id")))
+        // A whole project, with its tasks: put away, and brought back as it was.
+        "archive" | "restore" | "unarchive" if flags.has("repo") => {
+            if pos.len() > 1 { crate::fail!("{cmd} --repo NAME takes no id: it {cmd}s the whole project. Try: herdr-projects help"); }
+            let Some(repo) = flag("repo") else { crate::fail!("--repo needs a repo's name: herdr-projects {cmd} --repo NAME") };
+            let (said, ids) = if cmd == "archive" { archive_project::archive_project(&repo)? } else { archive_project::restore_project(&repo)? };
+            let mut out = obj(json!({ "repo": repo })); out.put(if cmd == "archive" { "archived" } else { "restored" }, ids);
+            (Value::Object(out), said)
         }
+        "archive" => { let t = archive::archive(&need(1, "an id")?)?; (shown_of(t.s("id")), format!("{}: archived", t.s("id"))) }
         "restore" | "unarchive" => { let t = archive::restore(&need(1, "an id")?)?; (shown_of(t.s("id")), format!("{}: restored", t.s("id"))) }
         "clear" => {
             let (id, kept) = archive::clear(&need(1, "an id")?)?;

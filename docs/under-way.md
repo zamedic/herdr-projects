@@ -6,7 +6,7 @@ working colour. The task panel says the same under Status, as `Now`.
 
 | Key | The row says |
 |---|---|
-| `Tab`, or a first reply to a task with no agent | `Starting…` |
+| `Ctrl+S`, or a first reply to a task with no agent | `Starting…` |
 | `Ctrl+X` on a running task | `Stopping…` |
 | `Ctrl+X` then `y` on one that is not running | `Removing…` |
 | `Ctrl+L` | `Merging…` (after the `y`), `Approving…`, `Trying again…` or `Finishing as it is…`, depending on what it says yes to |
@@ -14,8 +14,13 @@ working colour. The task panel says the same under Status, as `Now`.
 | `Ctrl+A`, `Ctrl+Z` | `Archiving…`, `Restoring…` |
 | `Ctrl+P` | `Pinning…`, `Unpinning…` |
 | `y` when picking an attempt | `Keeping attempt B…` |
-| `Enter` with nothing typed | `Opening…` (until its pane opens) |
-| `Space`, `Tab`, `Ctrl+X` on an automation | `Turning on…`, `Turning off…`, `Firing…`, `Removing…` |
+| `Alt+O` | `Opening…` (until its pane opens) |
+| `Space`, `Ctrl+S`, `Ctrl+X` on an automation | `Turning on…`, `Turning off…`, `Firing…`, `Removing…` |
+| `Ctrl+S`, `Ctrl+X`, `Ctrl+O` on a machine's or a project's row (its coordinator, here or on its machine) | `Starting…` (started, or autopilot on), `Stopping…` (stopped, or autopilot off), in the time's place with the working mark |
+| `Alt+O` on a machine's or a project's row | `Opening…` |
+
+**Nothing is said under the chat when it worked**: no confirmation line, for any key. The row shows what is under way,
+then what it became. What went wrong is still said (below).
 
 ## When it ends
 

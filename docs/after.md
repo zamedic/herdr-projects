@@ -12,13 +12,13 @@ herdr-projects delegate gtm-agent/4 --after gtm-skills/12,gtm-skills/13
 Or tell the Coordinator: "then", "once that is merged", "after HSW-12", "after ELA-3 on vm-str" become an `--after` on
 the task it adds or delegates. It adds `--delegate` (queues it) only when you asked for the task to be started.
 
-`--after` is only a condition: the task may not start before the tasks it names are done. Starting it is still `Tab`
+`--after` is only a condition: the task may not start before the tasks it names are done. Starting it is still `Ctrl+S`
 (`delegate`), as for any task.
 
 | You did | The task |
 |---|---|
-| `--after` without `Tab` | stays under **to do**, and **never starts by itself** |
-| `--after` and `Tab` (`delegate`) | is **queued**, and starts by itself once they are all done |
+| `--after` without `Ctrl+S` | stays under **to do**, and **never starts by itself** |
+| `--after` and `Ctrl+S` (`delegate`) | is **queued**, and starts by itself once they are all done |
 
 **Done** is whatever the board calls done: its work merged, a research task finished with its report, or a task marked
 done (`report <id> --state done`, with nothing merged). A task archived after it was done still counts as done.
@@ -28,7 +28,7 @@ done (`report <id> --state done`, with nothing merged). A task archived after it
 A task with `--after` that nobody tabbed (`add --after` without `--delegate`, or `after <id> <id>` on a task in to do)
 stays under **to do** with its `○`. It never starts by itself, not even once those tasks are done.
 
-- `Tab` starts it any time. If they are not all done yet, it is queued (below). If they are, it starts at once.
+- `Ctrl+S` starts it any time. If they are not all done yet, it is queued (below). If they are, it starts at once.
 - Its row says nothing of the wait. Neither do the web Board and the Herdr sidebar rows.
 - The task panel has a `To wait for` line (`To wait for  SKL-6`), where you see and change it.
 - `list` shows it beside the title: `after SKL-6`, or `after SKL-4, SKL-5`, naming the ones not done yet (none once
@@ -39,9 +39,10 @@ stays under **to do** with its `○`. It never starts by itself, not even once t
 A task tabbed with `--after` while those tasks are not all done is queued, exactly like a task waiting for a free slot
 ([the board](board.md)):
 
-- the pink `◌` and the queue's colour, under **working** with the queued tasks (after those waiting for a slot);
-- its line says `queued after AGT-2` (or `queued after SKL-4, SKL-5`), naming the ones not done yet by their key, as
-  everywhere else (`vm-str:ELA-3` for a task of another machine);
+- the `◌` in the dim grey of to do, under **working** with the queued tasks (after those waiting for a slot);
+- its line says `Queued after AGT-2` (or `Queued after SKL-4, SKL-5`), naming the ones not done yet by their key, as
+  everywhere else (`vm-str:ELA-3` for a task of another machine), in the quiet grey of any task's line and cut where
+  any other line is;
 - it has no place in the queue (`Q#2`) yet: it waits for tasks, not for a slot;
 - the task panel's State says `queued after AGT-2`, and a `Starts after` line lists each task (`(done)` beside those
   that are). `details` has an `after` part, and `list` shows it beside the title;
@@ -84,10 +85,10 @@ Nothing of that is final: get the other task going again, and once it is done th
 - `after <id> --clear` drops the wait; a task that was waiting starts at once. `delegate <id> --after none` does the same
   while delegating.
 - `delegate` on a task queued after others says it still is, and how to go on: `delegate <id> --now` starts it anyway.
-  Its agent is told the tasks were not all done, and what there is of them. On the board (and the web Board), `Tab` on
+  Its agent is told the tasks were not all done, and what there is of them. On the board (and the web Board), `Ctrl+S` on
   such a task asks first: `Start HSW-4 "…" now?`.
 - `stop <id>` on a task queued after others stops the waiting (on the board: the stop key, as for any queued task). It
-  goes back to to do, and what it waits for is kept as its condition for its next `Tab`. A task that waits for this one
+  goes back to to do, and what it waits for is kept as its condition for its next `Ctrl+S`. A task that waits for this one
   is told it was stopped, as for any stopped task, until it is delegated again.
 - A task an agent is already on cannot be made to wait: the wait is before the start.
 

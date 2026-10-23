@@ -1,11 +1,13 @@
 # Other machines
 
-**Every machine keeps its own tasks, and `Alt+M` shows the others' tasks on your board.** Press it to go round: this
-machine, every machine, then each other machine by itself. Actions on another machine's task run on that machine, over
+**Every machine keeps its own tasks, and `Alt+M` shows the others' tasks on your board.** Press it to go round: every
+machine, then each machine by itself (this one too) in the order of Herdr's sidebar. Actions on another machine's task run on that machine, over
 SSH. Work never moves between machines.
 
-Which machines you see is the first thing in the board's header, in the accent colour, and is never cut:
-`all machines: otherbox`, or `only otherbox`.
+Which machines you see is the first item of the filter row, in the base colour, with no caret: `All machines` (plain), or `otherbox` (lit, as the filter shown is)
+(in yellow while it does not answer). A click on it goes round too ([the board](board.md#the-filter-row)). No line
+under the chat confirms a pick: that item says whose board shows, the chat box who gets your words. On the web board a
+tap on it lists every board to pick one ([the web UI](web-ui.md)).
 
 ## Set up another machine
 
@@ -110,8 +112,8 @@ vm-a: its tasks cannot be read: herdr-projects is not found there.
   show them like this machine's own, under the same lines that name who said them ([the board](board.md)).
 - **Its Coordinator.** While the board shows one other machine by itself, what you type goes to that machine's
   Coordinator, and the chat shows that Coordinator's conversation. The machine sends where its Coordinator stands
-  (`idle`, `working`, how many of your messages wait) and the last dozen things said. The box shows them under the same
-  lines (`Coordinator:`, `You:`) and scrolls back through them. A machine with no Coordinator says so (what you type
+  (`idle`, `working`, how many of your messages wait) and the last dozen things said. The box shows them as this machine's:
+  your words bright, its answers grey, no labels, and scrolls back through them. A machine with no Coordinator says so (what you type
   there is added as a task).
 - **A machine on an older plugin** is recognised by its missing version: its new fields stay blank and the board says
   "update herdr-projects on <machine>". It sends no chat: its agent's last message still shows, and for a reviewer or

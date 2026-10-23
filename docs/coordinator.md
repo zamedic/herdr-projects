@@ -1,11 +1,13 @@
-# The Coordinator
+# The Coordinator (the coordinator of all machines)
 
-**The Coordinator is the agent you talk to in the board's chat.** Type what needs doing and it turns it into tasks.
-It is one long-lived agent chat, not a call per message: everything you type goes into the same conversation, so
-"delegate that one too" works, and it can ask you something back.
+**This machine's top-level coordinator is the top row's**: `All machines` with every machine shown (`the coordinator
+of all machines`), or, on a board with only this machine, this machine's row (`vm-str's coordinator`). The board opens
+on the top row, so the chat starts with it. Type what needs doing and it turns it into tasks. It is one long-lived
+agent chat, not a call per message: everything you type goes into the same conversation, so "delegate that one too"
+works, and it can ask you something back. Herdr and the commands still call it the Coordinator.
 
-Each machine and each repo has a coordinator of its own too, beside this one: `Space` on its heading
-([machine and project coordinators](machine-and-project-coordinators.md)).
+Each machine and each repo has a coordinator of its own too, beside this one: `Space` on its machine's or its project's row
+([machine and project coordinators](machine-and-project-coordinators.md)). There is no other main Coordinator.
 
 - `Enter` sends your message. **It decides itself what to start**: say "and start it" and it puts an agent on what it adds.
 - `Alt+C` shows and hides its latest message on the board.
@@ -25,19 +27,26 @@ herdr-projects coordinator stop
 Restart and new are commands, not board keys. You can also just ask the Coordinator to do them. `new --agent …` changes
 only the next one: your default stays as it is.
 
-## Its row and its settings
+`coordinator tell` run where herdr cannot be found (an SSH forced command, cron, systemd: herdr is not on PATH, not in
+`~/.local/bin`, `~/.cargo/bin`, `~/bin`, `/usr/local/bin` or `/opt/homebrew/bin`, and not on a login shell's PATH)
+keeps the message in the queue but does not say `sent`: it says the message is queued, not delivered, and why, and exits
+1. The board and its keeper deliver it once they run in herdr; `HERDR_BIN_PATH` set to herdr's full path delivers from
+there. `herdr-projects doctor` names messages that wait in a queue for more than a minute.
 
-**The Coordinator has a row of its own, on top of the list**, wherever a Coordinator can run. The list still opens on its
-first task: `↑` reaches it. `Space` there talks to it.
+## Its row, and its settings
 
-- `Alt+P` shows it beside the list, `Alt+T` whole, in the [task panel](task-panel.md)'s form: how it stands, its last
-  message, its program, model and effort.
-- `Ctrl+E` opens its settings page: its own rows, under `This coordinator`.
+**Its row is the top row**: `All machines`, or the only machine. It reads as every coordinator's row does: its mark
+(`○` idle, `◐` working, `?` it asks you), its time on the right, what it does under it (on
+[autopilot](autopilot.md), `[autopilot]` after its name and what autopilot does under it) ([machine and project coordinators](machine-and-project-coordinators.md)). With one other machine picked, the top
+row is that machine's, and this one is not on the board.
+
+- `Space` there talks to it; `Space` on another row talks to that row's agent, and again comes back here. `Alt+O` goes
+  into it.
+- `Alt+P`, `Alt+T` and `Ctrl+E` on its row show it and its settings; `Ctrl+S` starts it, `Ctrl+X` stops it and
+  `Ctrl+O` puts it on autopilot and takes it off.
 - Its settings (`coordinator.*`) are looked up as a task's are: **this coordinator → you → built in**. One set for it
   alone goes in the `coordinators` part of your `config.json` (`set … --main-coordinator`). A change counts from its next
   fresh chat ([settings](settings.md)).
-- `Tab` there puts it on [autopilot](autopilot.md), `Ctrl+X` takes it off. While on, its row reads as a task's (autopilot's mark,
-  its timing on the right, what it does under its name), and it sums up the other coordinators on autopilot: `Coordinator · 2 others on · 1 needs you`.
 
 ## Your message, and where you were
 
@@ -51,7 +60,7 @@ A board opened from the Coordinator's own pane stays in the repo it was last in:
 
 You just send your message; the Coordinator works out what to do with it. It adds the tasks, and starts them when you
 ask for that in your words ("fix the login page and start it"). On autopilot it starts what it adds by itself
-([autopilot](autopilot.md)). `Tab` with words typed does nothing: there is no second way to send.
+([autopilot](autopilot.md)). `Ctrl+S` with words typed does nothing: there is no second way to send.
 
 - `coordinator tell <text> --delegate` from a shell has every task it adds from that message delegated at once, however
   many, with nothing more to confirm. The message carries one line under your words saying so (the board's chat shows

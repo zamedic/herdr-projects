@@ -33,6 +33,7 @@ pub fn value_words(row: &Obj) -> String {
         Ty::Branch => "a branch name with {n}, {slug} or {key} in it, such as work/{n}-{slug}".into(),
         Ty::From => "main, here, or the name of a branch at the remote, such as develop".into(),
         Ty::List => "names, with commas between them; none for none".into(),
+        Ty::Issues => "issue numbers of the task's own repo, with commas between them, such as 2203, 2204; none for none".into(),
         Ty::Attempts => format!("a count from 1 to 5, or programs with commas between them ({PROGRAMS}), each with a model after a slash if you like"),
         _ => "typed".into(),
     };
@@ -46,7 +47,7 @@ pub fn mine_full(s: &mut State, t: &Theme, width: usize, h: usize) -> Vec<Inked>
     s.panel_length = lines.len();
     s.panel_top = s.edit_line.min(s.panel_top.max((s.edit_line + 1).saturating_sub(s.panel_height))).min(lines.len().saturating_sub(s.panel_height));
     let end = lines.len().min(s.panel_top + s.panel_height);
-    let name = match &w { Whose::Coord(..) => crate::board::update::coords::of_head(s, &s.sel).map(|t| format!("the {}'s, then what it shows under it", t.name)).unwrap_or_default(), _ if w.repo().is_empty() => "yours: what every task starts from".to_string(), _ => format!("your entry for {}: what its tasks start from", crate::shown::words::repo_label(w.repo())) };
+    let name = match &w { Whose::Coord(..) => crate::board::update::coords::of_head(s, &s.sel).map(|t| format!("{}'s, then what it shows under it", t.name)).unwrap_or_default(), _ if w.repo().is_empty() => "yours: what every task starts from".to_string(), _ => format!("your entry for {}: what its tasks start from", crate::shown::words::repo_label(w.repo())) };
     let left = Inked::plain(" ").add(Inked::plain("Settings").bold()).add(Inked::of(format!("  {}", crate::text::cut(&name, width.saturating_sub(30).max(8))), Ink::Muted));
     let right = if lines.len() > s.panel_height { Inked::of(format!("lines {}–{end} of {} ", s.panel_top + 1, lines.len()), Ink::Muted) } else { Inked::new() };
     let gap = width.saturating_sub(left.width() + right.width()).max(2);

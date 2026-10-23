@@ -54,6 +54,9 @@ fn a_board_with_nothing_going_on_is_all_quiet_its_archive_left_out_and_with_no_o
     far.tasks("vm-a", "0.2.0", json!([]));
     std::fs::write(sw::store::files::data_dir().join("view.json"), json!({ "cwd": w.root_str(), "scope": "*" }).to_string()).unwrap();
     sw::actions::archive::archive(&w.add("Old")).unwrap();
+    // Which machines there are is only what the test tells: the list a new board asks herdr for on a thread of its own
+    // could come in at any moment (after the second machine, taking it away again), so it goes nowhere.
+    { let c = sw::webui::web::client("t"); c.lock().unwrap().inbox = std::sync::Arc::new(std::sync::Mutex::new(vec![])); }
     // a web UI that names this machine only by its id, or none: the board's own words for it; this machine is the only
     // one, so all machines would be this one again: it is not there
     let told = |fx| { let c = sw::webui::web::client("t"); let mut g = c.lock().unwrap(); let fx = sw::board::update::update(&mut g.s, sw::board::update::Event::Machines(fx)); sw::webui::web::effects(&mut g, fx, false); };
@@ -111,10 +114,12 @@ fn picking_an_entry_shows_that_machines_board_as_other_machines_does_and_the_two
     let s = call("scope", json!({ "to": "vm-a" }), None).unwrap();
     assert_eq!(s.at("flags").s("scope"), "vm-a");
     assert_eq!(s.at("list").at("head").s("only"), "vm-a");
-    assert!(s.at("msg").s("text").contains("Only vm-a"), "said as the board says it: {}", s.at("msg"));
+    assert!(s.at("msg").is_null(), "a board you picked is not confirmed by a line: the filter row says whose it is: {}", s.at("msg"));
     assert_eq!(boards(None).s("scope"), "vm-a", "the section highlights what the board shows");
     // the other way round: the board's own Other machines moves the section's highlight with it
     call("press", json!({ "id": "scope" }), None).unwrap();
+    assert_eq!(boards(None).s("scope"), "*", "after the last machine the round is back at every machine");
+    call("scope", json!({ "to": "" }), None).unwrap();
     assert_eq!(boards(None).s("scope"), "");
     call("scope", json!({ "to": "*" }), None).unwrap();
     assert_eq!(boards(None).s("scope"), "*");
@@ -174,6 +179,7 @@ fn only_a_board_picked_on_the_web_is_kept_another_change_leaves_the_web_followin
     assert_eq!(s.at("flags").s("scope"), "*");
     assert!(s.at("list").arr("groups").iter().any(|g| g.arr("rows").iter().any(|r| r.s("title") == "Theirs 1")), "{}", s.at("list"));
     // the scope key pressed on the web is a pick, as the sidebar's entry is
-    call("press", json!({ "id": "scope" }), None).unwrap();
-    assert_eq!(kept().at("ownScope"), &json!("vm-a"));
+    let s = call("press", json!({ "id": "scope" }), None).unwrap();
+    assert_ne!(s.at("flags").s("scope"), "*");
+    assert_eq!(kept().at("ownScope"), s.at("flags").at("scope"));
 }

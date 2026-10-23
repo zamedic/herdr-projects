@@ -1,6 +1,6 @@
 //! With this machine the only one, there is no every machine to show: alt+m asks herdr for the machines first, says
 //! when there are none, and shows every machine as soon as there is another; a board that showed every machine goes
-//! back to this machine's own when the others are gone. With two machines it goes round as before.
+//! back to this machine's own when the others are gone. With two machines it goes round: every machine, then each.
 use crate::common;
 use common::board::open;
 use common::*;
@@ -31,15 +31,16 @@ fn with_no_other_machine_alt_m_asks_for_them_and_shows_every_machine_only_once_t
     assert!(s.s.seeking && s.s.scope.is_empty());
     told(&mut s, vec![machine("otherbox")]);
     assert_eq!(s.s.scope, "*");
-    assert!(s.text().contains("all machines: otherbox"), "{}", s.text());
-    // two machines: round as before, this machine, every machine, then the other one by itself
-    s.press(&["alt+m"]); assert_eq!(s.s.scope, "otherbox");
-    s.press(&["alt+m"]); assert_eq!(s.s.scope, "");
-    s.press(&["alt+m"]); assert_eq!(s.s.scope, "*");
+    assert!(s.text().contains("\n All machines │ "), "the filter row's first item: {}", s.text());
+    // two machines: round, every machine first, then each machine by itself in herdr's sidebar order
+    let mut round = vec![];
+    for _ in 0..3 { s.press(&["alt+m"]); round.push(s.s.scope.clone()); }
+    assert_eq!(round[2], "*"); round.truncate(2); round.sort();
+    assert_eq!(round, vec!["".to_string(), "otherbox".into()]);
     // the other machine is gone: every machine is this one again, and the board shows this machine's own
     told(&mut s, vec![]);
     assert_eq!(s.s.scope, "");
-    assert!(!s.text().contains("all machines"), "{}", s.text());
+    assert!(!s.text().contains("All machines │"), "{}", s.text());
 }
 
 #[test]
@@ -48,8 +49,8 @@ fn a_board_kept_on_every_machine_says_it_is_asking_and_goes_back_to_this_machine
     w.add("Mine");
     let mut s = open(&w.root, 60);
     s.s.scope = "*".into();
-    assert!(s.text().contains("all machines: asking…"), "{}", s.text());
+    assert!(s.text().contains("\n All machines │ "), "{}", s.text());
     told(&mut s, vec![]);
     assert_eq!(s.s.scope, "");
-    assert!(!s.text().contains("all machines"), "{}", s.text());
+    assert!(!s.text().contains("All machines │"), "{}", s.text());
 }

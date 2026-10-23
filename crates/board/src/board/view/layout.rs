@@ -51,7 +51,8 @@ fn failed(what: &str, width: usize) -> Inked { Inked::plain("  ").add(Inked::of(
 /// The header and the list, `h` lines in `w` cells; where they could not be drawn, that is said in their place.
 fn list_part(s: &mut State, t: &Theme, w: usize, h: usize, screen_w: usize, above: usize) -> Vec<Inked> {
     super::guard::part(|| {
-        let head = head_lines(s, w);
+        let head = head_lines(s, t, w, h);
+        for h in s.show_hits.iter_mut() { h.0 += above; }
         s.list_at = Some((above + head.len(), w));
         let mut v = head.clone();
         v.extend(list_lines(s, t, w, h.saturating_sub(head.len()).max(1), screen_w));
@@ -91,7 +92,9 @@ fn draw_at(s: &mut State, t: &Theme, width: usize, rows: usize) -> Screen {
     let mut chat = chat_lines(who.as_ref(), width, rows_n < 16);
     let head_n = chat.len();
     let auto = s.auto().cloned();
-    s.chat_folded = (s.full || s.auto_open || s.menu.is_some() || rows_n < 14) && !who.as_ref().map(|w| w.always).unwrap_or(false);
+    // The skill list over the box (skills.rs) takes the message's room while it shows.
+    let picks = super::guard::part(|| super::skills::skill_lines(s, t, width, rows_n / 3)).unwrap_or_default();
+    s.chat_folded = (s.full || s.auto_open || s.menu.is_some() || !picks.is_empty() || rows_n < 14) && !who.as_ref().map(|w| w.always).unwrap_or(false);
     let framed = !s.chat_folded && s.ask.is_none() && chat_up(s, who.as_ref()) && who.as_ref().map(|w| w.said).unwrap_or(false) && width >= 8;
     // What just happened, on a line of its own: the hints below it stay readable.
     let stale = if s.stale.is_empty() { String::new() } else if !s.ctx.can_reload { "herdr-projects was updated: close the board and open it again for the new version.".into() } else { "herdr-projects was updated: the new version loads when nothing is half typed.".into() };
@@ -103,8 +106,8 @@ fn draw_at(s: &mut State, t: &Theme, width: usize, rows: usize) -> Screen {
     else if !stale.is_empty() { vec![Inked::plain("  ").add(Inked::of(stale, Ink::Muted))] } else { vec![] };
     let said: Vec<Inked> = broke.iter().map(|b| failed(b, width)).chain(said).collect();
     // The text box grows with a draft that wraps, up to half the window: a longer draft scrolls inside it.
-    let box_rows = (rows_n as i64 - 4 - head_n as i64 - if selected_job.is_some() { 1 } else { 0 }).min((rows_n / 2).max(5) as i64).max(1) as usize;
-    let (mut input, mut cursor) = super::guard::part(|| if s.ask.is_some() { (super::ask::ask_lines(s, width, rows_n), None) } else if framed { chat_box(s, width, box_rows, r.as_ref(), &[]) } else { box_lines(s, width, box_rows, r.as_ref()) })
+    let box_rows = (rows_n as i64 - 4 - head_n as i64 - if super::textbox::airy(s) { 2 } else { 0 } - if selected_job.is_some() { 1 } else { 0 }).min((rows_n / 2).max(5) as i64).max(1) as usize;
+    let (mut input, mut cursor) = super::guard::part(|| if s.ask.is_some() { (super::ask::ask_lines(s, width, rows_n), None) } else if (framed || super::chat_title::title(s, r.as_ref()).is_some()) && width >= 8 { chat_box(s, width, box_rows, r.as_ref(), &[]) } else { box_lines(s, width, box_rows, r.as_ref()) })
         .unwrap_or_else(|why| (vec![Inked::of("─".repeat(width), Ink::Rule), failed(&format!("The text box could not be shown: {why}"), width), Inked::of("─".repeat(width), Ink::Rule)], None));
     // The message takes the lines it needs: with its box up to two thirds of the window, and only rows the list can
     // spare. Under the whole task and the menu it keeps to a third. A longer one scrolls.
@@ -119,10 +122,11 @@ fn draw_at(s: &mut State, t: &Theme, width: usize, rows: usize) -> Screen {
         draft_rows -= give; spare += give;
         if !w.text.is_empty() && spare < 1 { spare = (spare + 1).min(1); }
         let most = if s.full || s.menu.is_some() { 8.min(rows_n as i64 / 3 - 2) } else { (rows_n as i64 * 2) / 3 - draft_rows - 3 };
-        let message = chat_message(s, Some(w), width.saturating_sub(4), spare.min(most.max(3)).max(0) as usize);
+        let message = chat_message(s, Some(w), super::textbox::inner_width(width), spare.min(most.max(3)).max(0) as usize);
         message_n = message.len();
         if message_n > 0 { let (l, c) = chat_box(s, width, draft_rows.max(1) as usize, r.as_ref(), &message); input = l; cursor = c; }
     }
+    if !picks.is_empty() { cursor = cursor.map(|(l, c)| (l + picks.len(), c)); input = picks.into_iter().chain(input).collect(); }
     // A question has no hints: its box ends on the window's last line, with no empty hint line under it.
     let hint_n = usize::from(s.ask.is_none());
     let extra_rows = (rows_n as i64 - input.len() as i64 - 1 - hint_n as i64 - said.len() as i64 - head_n as i64).max(0) as usize;

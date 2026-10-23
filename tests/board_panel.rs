@@ -35,13 +35,13 @@ fn the_panel_beside_the_list_cuts_a_long_description_short_and_the_whole_panel_s
     let mut s = open(&w.root, 44);
     s.s.sel = big.clone(); s.load();
     let text = s.screen(120).join("\n");
-    assert!(has(&text, r"│ {2}PRJ-2 Long one") && text.contains("Line 1 of a very long"), "{text}");
+    assert!(has(&text, r"│ +{2}PRJ-2 Long one") && text.contains("Line 1 of a very long"), "{text}");
     // Beside the list the description is short: a few lines, then where the rest is.
-    assert!(has(&text, r"Line 8 of a very long description\. … *\n") && has(&text, &keyed(r"│ {2}{panel} shows the whole task")), "{text}");
+    assert!(has(&text, r"Line 8 of a very long description\. … *\n") && has(&text, &keyed(r"│ +{2}{panel} shows the whole task")), "{text}");
     assert!(!text.contains("Line 9 of") && !text.contains("Line 80 of"));
     // The title, the status under its headline as facts, then the description, then the settings: an empty line between.
-    assert!(has(&text, r"│ {2}PRJ-2 Long one *\n[^\n]*│ *\n[^\n]*│ {2}Status ─+ *\n[^\n]*│ {2}State {8}○ to do · \ds ago *\n[^\n]*│ *\n[^\n]*│ {2}Description ─+ *\n"), "{text}");
-    assert!(has(&text, r"│ {2}Settings ─+ *\n[^\n]*│ {2}Agent {8}claude · default model *\n[^\n]*│ {15}default effort *\n[^\n]*│ {2}Plan first {3}off *\n"), "{text}");
+    assert!(has(&text, r"│ +{2}PRJ-2 Long one *\n[^\n]*│ +*\n[^\n]*│ +{2}Status ─+ *\n[^\n]*│ +{2}State {8}○ to do · \ds ago *\n[^\n]*│ +*\n[^\n]*│ +{2}Description ─+ *\n"), "{text}");
+    assert!(has(&text, r"│ +{2}Settings ─+ *\n[^\n]*│ +{2}Agent {8}claude · default model *\n[^\n]*│ +{15}default effort *\n[^\n]*│ +{2}Plan first {3}off *\n"), "{text}");
     assert!(!text.contains("as usual"));
     let whole = text_of(&panel_of(&mut s, 80, true));
     // (A long folder, as macOS's temp folders are, goes on on a line of its own.)
@@ -53,24 +53,24 @@ fn the_panel_beside_the_list_cuts_a_long_description_short_and_the_whole_panel_s
     assert!(!has(&whole, r"\((this task|you|this repo)\)|\*"), "no value names a place, and none is marked: none is this task's own");
     // A short window gives the settings its lines before the description: cut further, then the one line that says
     // where to read it, then gone, and only then a setting. With no room for all, a line counts the rest.
-    { let side = beside(&w, &big, 33); every(&side, "33 rows");
+    { let side = beside(&w, &big, 32); every(&side, "32 rows");
       assert!(has(&side.join("\n"), r"\n {2}Description ─+\n {2}Line 1 of a very long description\.\n {2}Line 2 of a very long description\.\n {2}Line 3 of a very long description\. …\n\n {2}Settings ─"), "{}", side.join("\n")); }
-    { let side = beside(&w, &big, 31); every(&side, "31 rows"); let t = side.join("\n");
+    { let side = beside(&w, &big, 30); every(&side, "30 rows"); let t = side.join("\n");
       assert!(has(&t, &keyed(r"\n {2}State {8}○ to do · \ds ago\n\n {2}Description · {panel} shows it\n\n {2}Settings ─")) && !t.contains("Line 1 of"), "{t}"); }
-    { let side = beside(&w, &big, 28); every(&side, "28 rows"); let t = side.join("\n"); assert!(!has(&t, "Description|Line 1 of"), "{t}"); }
-    { let side = beside(&w, &big, 21); let t = side.join("\n");
+    { let side = beside(&w, &big, 27); every(&side, "27 rows"); let t = side.join("\n"); assert!(!has(&t, "Description|Line 1 of"), "{t}"); }
+    { let side = beside(&w, &big, 20); let t = side.join("\n");
       assert!(has(&t, &keyed(r"\n {2}Status ─+\n {2}State {8}○ to do · \ds ago\n\n {2}Settings ─+\n {2}Agent {8}claude · default model\n {15}default effort\n {2}Reviewer {5}codex · default model\n {15}default effort\n {2}Review when {2}in a repo · with evidence\n {2}Send back {4}major or worse · 3 rounds max\n {2}16 more settings · {settings} shows them\n\n {2}{panel} shows the whole task")), "{t}");
       assert!(!side.iter().any(|l| l.ends_with('…')), "nothing is cut in the middle of a line"); }
     // With too little room for all, a value somebody chose comes before the built-in ones.
     set("limit.time", "2h", &big);
-    let t = beside(&w, &big, 21).join("\n");
+    let t = beside(&w, &big, 20).join("\n");
     assert!(has(&t, r"\n {2}Settings ─+\n {2}Limits {7}2h a run \* · no token limit\n {2}Agent {8}claude · default model\n"), "{t}");
     assert!(!t.contains("this task only"), "squeezed, the line that says what * means goes first: {t}");
     unset_value("limit.time", &Scope::task(&task(&big))).unwrap();
     set("worker.agent", "claude/opus", &big); s.load();
     let text = s.screen(120).join("\n");
-    assert!(has(&text, r"│ {2}Agent {8}\S+ · opus \* *\n[^\n]*│ {15}default effort *\n") && has(&text, r"│ {2}Reviewer {5}codex · default model") && !text.contains("as usual"), "{text}");
-    assert!(has(&text, r"│ {2}\* this task only *\n"), "with room, one line says what * means: {text}");
+    assert!(has(&text, r"│ +{2}Agent {8}\S+ · opus \* *\n[^\n]*│ +{15}default effort *\n") && has(&text, r"│ +{2}Reviewer {5}codex · default model") && !text.contains("as usual"), "{text}");
+    assert!(has(&text, r"│ +{2}\* this task only *\n"), "with room, one line says what * means: {text}");
     // A long text with no line breaks is cut between words after a few hundred characters.
     let prose = add(&w, "Prose", &vec!["word"; 400].join(" "));
     s.s.sel = prose; s.load();
@@ -126,7 +126,7 @@ fn the_panel_never_opens_full_screen_by_itself_something_going_wrong_only_change
     s.load();
     assert!(s.s.sel == id && !s.s.full && !s.s.reply);
     let text = s.screen(80).join("\n");
-    assert!(has(&text, r"\n ▾ needs you *\n[ ▌]✗ PRJ-1 Match the colors [^\n]*\n[ ▌] {8}Merge conflict with main"), "{text}");
+    assert!(has(&text, r"\n   ▾ needs you *\n[ ▌]  ✗ PRJ-1 Match the colors [^\n]*\n[ ▌] {10}Merge conflict with main"), "{text}");
     assert!(!text.contains("Conflicting files"));
     // The hint line: what matters now, the main thing first, never more than four; the main thing is the last to go.
     assert!(has(&s.screen(120).join("\n"), &keyed(r"\n[ ▌] {1}{sendBack} tell this task's agent to fix it · {yes} retry as it is · space talk about this task · \? all keys *$")), "{}", s.screen(120).join("\n"));
@@ -135,19 +135,19 @@ fn the_panel_never_opens_full_screen_by_itself_something_going_wrong_only_change
     assert!(has(&s.screen(50).join("\n"), &keyed(r"\n[ ▌] {1}{sendBack} tell this task's agent to fix it *$")), "{}", s.screen(50).join("\n"));
     // Wide, the panel beside the list already says it, in order: where it stands, then what it needs from you.
     let text = s.screen(120).join("\n");
-    assert!(has(&text, &keyed(r"│ {2}State {8}✗ needs you · \ds ago *\n(?:[^\n]*│ {2}On it[^\n]*\n)?[^\n]*│ *\n[^\n]*│ {2}Went wrong ─+ *\n[^\n]*│ {2}Merge conflict with main *\n[^\n]*│ {2}The agent can fix this: {sendBack} sends it\. *\n[^\n]*│ {2}Next step {4}Resolve the conflict\. *\n[^\n]*│ {2}Details {6}Conflicting files: *\n[^\n]*│ {15}src/board/view\.js")), "{text}");
+    assert!(has(&text, &keyed(r"│ +{2}State {8}✗ needs you · \ds ago *\n(?:[^\n]*│ +{2}On it[^\n]*\n)?[^\n]*│ +*\n[^\n]*│ +{2}Went wrong ─+ *\n[^\n]*│ +{2}Merge conflict with main *\n[^\n]*│ +{2}The agent can fix this: {sendBack} sends it\. *\n[^\n]*│ +{2}Next step {4}Resolve the conflict\. *\n[^\n]*│ +{2}Details {6}Conflicting files: *\n[^\n]*│ +{15}src/board/view\.js")), "{text}");
     // Narrow, space does what it does at every width: the chat names the task, and the list stays. alt+t opens the
     // same panel full screen; esc leaves it, and the chat stays the task's.
     s.cols = 80; s.screen(80); s.press(&["space"]);
     let text = s.screen(80).join("\n");
-    assert!(!s.s.full && s.s.reply && text.starts_with(" herdr-projects") && has(&text, r"\n *\n[ ▌]. PRJ-1 Match the colors {2}"), "{text}");
+    assert!(!s.s.full && s.s.reply && text.starts_with(" herdr-projects") && has(&text, r"\n╭─ [^\n]* PRJ-1  · Agent ─+╮\n(?:│ +│\n)?"), "{text}");
     s.press(&["alt+t"]); let text = s.screen(80).join("\n");
     assert!(s.s.full && s.s.reply);
     assert!(text.starts_with(" Task details  PRJ-1 \"Match the colors\"") && text.contains("Merge conflict with main") && has(&text, r"\n Details {6}Conflicting files: *\n[ ▌] {13}src/board/view\.js"), "{text}");
-    assert!(has(&text, r"\n *\n[ ▌]. PRJ-1 Match the colors {2}[^\n]*\n(?:[^\n]*\n)*?─[^\n]*\n❯"), "{text}");
+    assert!(has(&text, r"\n╭─ [^\n]* PRJ-1  · Agent ─+╮\n(?:│ +│\n)?(?:[^\n]*\n)*?│ +❯"), "{text}"); // whole: the chat folds to its edge
     s.press(&["esc"]);
     let text = s.screen(80).join("\n");
-    assert!(!s.s.full && s.s.reply && !text.contains("Conflicting files") && has(&text, r"\n *\n[ ▌]. PRJ-1 Match the colors {2}"), "{text}");
+    assert!(!s.s.full && s.s.reply && !text.contains("Conflicting files") && has(&text, r"\n╭─ [^\n]* PRJ-1  · Agent ─+╮\n(?:│ +│\n)?"), "{text}");
     // Nor does coming back from the archive bring it up, and an open panel is not remembered when the board reopens.
     s.press(&["alt+t"]); assert!(s.s.full);
     s.press(&["esc", "alt+a"]); assert!(s.s.archive_view);
