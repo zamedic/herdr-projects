@@ -1,5 +1,5 @@
-//! The board's keys on a test world: typing adds a task, tab puts an agent on it, space replies to it, enter opens the
-//! agent; ctrl+x stops an agent and asks to remove only where none runs; and while the text box holds words it owns the
+//! The board's keys on a test world: typing adds a task, ctrl+s puts an agent on it, space replies to it, alt+o opens
+//! the agent (enter on a task's row does nothing); ctrl+x stops an agent and asks to remove only where none runs; and while the text box holds words it owns the
 //! keyboard, so no shortcut fires in the middle of a draft.
 use crate::common;
 use common::board::{open, open_with};
@@ -7,6 +7,12 @@ use common::*;
 use serde_json::json;
 use sw::board::keys::key_name;
 use sw::json::*;
+
+/// The filter row on top and the three groupings of alt+s.
+mod coord_rows;
+mod filters;
+/// The key that opens a task's report or pull request.
+mod open_link;
 
 fn has(text: &str, re: &str) -> bool { regex::Regex::new(re).unwrap().is_match(text) }
 
@@ -18,41 +24,44 @@ fn typing_adds_a_task_tab_delegates_space_replies_and_enter_opens_the_agent() {
     let mut s = open_with(&w.root, 36, true);
     s.typed("Add a greeting");
     let t = s.text();
-    assert!(has(&t, r"\n *\n \+ New task  [^\n]*\n─[^\n]*\n❯ Add a greeting"), "{t}");
-    assert!(t.contains("enter add it as a task · tab add it and put an agent on it · shift+enter new line · esc put away"), "{t}");
+    assert!(has(&t, r"\n─[^\n]*\n❯ Add a greeting"), "{t}");
+    assert!(t.contains("enter add it as a task · ctrl+s add it and put an agent on it · shift+enter new line · esc put away"), "{t}");
     s.press(&["enter"]);
     assert_eq!(task("proj/1").s("title"), "Add a greeting");
     assert_eq!((s.s.sel.as_str(), s.s.value()), ("proj/1", String::new()));
-    assert!(has(&s.text(), r"\n[ ▌] tab put an agent on this task · space talk about this task · esc close · \? all keys"), "{}", s.text());
-    s.press(&["enter"]); assert!(s.text().contains("No agent has been on this yet"));
-    s.press(&["tab"]);
+    assert!(has(&s.text(), r"\n[ ▌] ctrl\+s put an agent on this task · space talk about this task · esc close · \? all keys"), "{}", s.text());
+    // enter on a task's row with nothing typed: nothing at all; alt+o goes into its agent, and it has none yet
+    let fx = s.hold("enter"); assert!(fx.is_empty() && s.s.msg.is_empty(), "{fx:?} {}", s.s.msg);
+    s.press(&["alt+o"]); assert!(s.text().contains("No agent has been on this yet"));
+    s.press(&["ctrl+s"]);
     settle("proj/1"); s.load();
     let t = s.text();
-    assert!(has(&t, r"\n ▾ working +[^\n]*\n[ ▌]◐ PRJ-\d+ +Add a greeting"), "{t}");
+    assert!(has(&t, r"\n   ▾ working +[^\n]*\n[ ▌]  ◐ PRJ-\d+ +Add a greeting"), "{t}");
     assert!(!has(&t, "On its screen|Editing greet|esc to interrupt"), "nothing of the program's screen is shown");
-    assert!(t.contains(&format!("enter open this task's agent · space talk to the agent · {} stop the agent · esc close · ? all keys", key_name("stop"))), "{t}");
+    assert!(t.contains(&format!("alt+o open this task's agent · space talk to the agent · {} stop the agent · esc close · ? all keys", key_name("stop"))), "{t}");
     s.press(&["space"]);
-    assert!(has(&s.text(), r"│ ❯ Send message to Agent"), "{}", s.text());
+    assert!(has(&s.text(), r"│  ❯ Send message to the agent"), "{}", s.text());
     w.script(json!({ "worker": [{ "status": "working" }] }));
     s.typed("also say goodbye");
-    assert!(s.text().contains("│ ❯ also say goodbye") && s.text().contains("enter send to PRJ-1's agent · shift+enter new line · esc put away"), "{}", s.text());
+    assert!(s.text().contains("│  ❯ also say goodbye") && s.text().contains("enter send to PRJ-1's agent · shift+enter new line · esc put away"), "{}", s.text());
     s.press(&["enter"]);
     // What you just sent stands in the box, in place of what the agent had said, until it says something new.
-    assert!(has(&s.text(), r"\n╭─[^\n]*╮\n│ You: +│\n│ also say goodbye +│\n│ +│\n│ ❯ Send message to Agent +│\n╰─+╯\n"), "{}", s.text());
+    assert!(has(&s.text(), r"\n╭─[^\n]*╮\n│ +│\n│  also say goodbye +│\n│ +│\n│  ❯ Send message to the agent +│\n│ +│\n╰─+╯\n"), "{}", s.text());
     assert!(!s.text().contains("Sent to the agent"));
     let t1 = task("proj/1");
     assert!(prompts(&w, t1.at("link").s("pane")).last().unwrap().contains("also say goodbye"));
-    // esc has nothing else to go back from here: it hides the chat's message, and never changes who you talk to.
-    assert!(s.text().contains("· space back to the Coordinator") && !s.text().contains("esc close"), "{}", s.text());
+    // esc has nothing else to go back from here: it hides the chat's message, and never changes who you talk to. No
+    // coordinator can run here: space goes back to the box that adds tasks.
+    assert!(s.text().contains("· space back") && !s.text().contains("esc close"), "{}", s.text());
     s.press(&["esc"]); assert!(!s.s.chat_open && s.s.reply && s.s.ask.is_none() && s.s.closing.is_none() && !s.closed);
     assert!(s.text().contains(&format!("esc close · {} show the latest message", key_name("chatMessage"))), "{}", s.text());
     s.press(&["esc"]); assert!(s.closed, "this board is the popup: the last esc closes it");
     s.closed = false;
     s.press(&["alt+c"]); assert!(s.s.chat_open);
     s.press(&["space"]); assert!(!s.s.reply);
-    assert!(has(&s.text(), r"\n *\n \+ New task  [^\n]*\n─[^\n]*\n❯"), "{}", s.text());
-    // enter: the agent's real pane by pane id; the popup closes for it
-    s.press(&["enter"]);
+    assert!(has(&s.text(), r"\n─[^\n]*\n❯ Add a task"), "{}", s.text()); // no coordinator here: the box adds tasks
+    // alt+o: the agent's real pane by pane id; the popup closes for it
+    s.press(&["alt+o"]);
     assert!(s.closed, "the popup closes");
     assert!(w.state().arr("focus").iter().any(|f| f.s("") == "" && text(f) == format!("agent {}", t1.at("link").s("pane"))), "{}", w.state().at("focus"));
     let popup = sw::store::files::read_obj(&sw::store::files::data_dir().join("view-popup.json")).unwrap_or_default();
@@ -87,7 +96,7 @@ fn while_the_text_box_holds_words_no_shortcut_fires_and_ctrl_c_twice_closes() {
     s.s.sel = id.clone(); s.load();
     s.typed("half a thought");
     let before = (task(&id).t("stage"), task(&id).b("pinned"), task(&id).b("archivedAt"), sw::store::tasks::list(Default::default()).len());
-    for k in ["ctrl+l", "ctrl+r", "ctrl+x", "ctrl+x", "ctrl+p", "ctrl+f", "alt+c", "alt+p", "alt+t", "alt+a", "alt+s", "alt+d", "alt+m", "ctrl+e", "ctrl+g", "ctrl+t", "ctrl+d", "ctrl+b", "ctrl+s", "ctrl+o", "alt+h", "alt+v", "alt+r", "alt+n", "ctrl+a", "ctrl+e", "?", "space", "up", "down"] { s.press(&[k]); }
+    for k in ["ctrl+l", "ctrl+r", "ctrl+x", "ctrl+x", "ctrl+p", "ctrl+f", "alt+c", "alt+p", "alt+t", "alt+a", "alt+s", "alt+d", "alt+m", "ctrl+e", "ctrl+g", "ctrl+t", "ctrl+d", "ctrl+b", "ctrl+o", "alt+h", "alt+v", "alt+r", "alt+n", "ctrl+a", "ctrl+e", "?", "space", "up", "down"] { s.press(&[k]); }
     assert_eq!((task(&id).t("stage"), task(&id).b("pinned"), task(&id).b("archivedAt"), sw::store::tasks::list(Default::default()).len()), before, "nothing happened to any task");
     assert!(s.s.sel == id && s.s.ask.is_none() && s.s.menu.is_none() && !s.s.full && !s.s.archive_view && !s.s.all_done && !s.s.by_repo && s.s.chat_open && s.s.msg.is_empty());
     assert!(s.s.value().contains("half a thought") && s.s.value().contains('?'), "\"?\" and space are typed, not acted on: {}", s.s.value());

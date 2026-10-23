@@ -1,5 +1,5 @@
-//! What the old board-actions tests checked that tests/board_actions.rs does not: a result stays through the board's
-//! beats, the ? menu names every key it has and none it lost, the archive's own hint line, undo of an archiving, the pinned group,
+//! What the old board-actions tests checked that tests/board_actions.rs does not: a yes says nothing under the chat
+//! (its row says what is under way, through the board's beats), the ? menu names every key it has and none it lost, the archive's own hint line, undo of an archiving, the pinned group,
 //! and a task whose agent needs a login, which yes tells to carry on.
 use crate::common;
 use common::board::open;
@@ -13,7 +13,7 @@ fn has(text: &str, re: &str) -> bool { regex::Regex::new(re).unwrap().is_match(t
 fn k(id: &str) -> String { regex::escape(&key_name(id)) }
 
 #[test]
-fn a_result_stays_through_the_beats_and_the_menu_names_every_key_and_no_old_one() {
+fn a_yes_says_nothing_under_the_chat_its_row_says_it_and_the_menu_names_every_key_and_no_old_one() {
     let w = world();
     w.script(json!({ "worker": [{ "files": { "f.txt": "1\n" }, "commit": "1", "note": "Made f." }], "reviewer": [{ "verdict": { "meets": true, "text": "Good.", "findings": [] } }] }));
     let id = w.add("Make f"); w.add("Other");
@@ -21,11 +21,13 @@ fn a_result_stays_through_the_beats_and_the_menu_names_every_key_and_no_old_one(
     let mut s = open(&w.root, 34);
     s.s.sel = id.clone(); s.load();
     s.press(&["ctrl+l", "y"]);
-    assert!(s.text().contains("PRJ-1: approved, merging"), "{}", s.text());
-    // a result stays until the next key press, however long that takes
+    // no confirmation under the chat: the row says what is under way
+    let merging = |s: &mut common::board::Board| has(&s.text(), r"PRJ-1 Make f[^\n]*\n[ ▌] +Merging");
+    assert!(!s.text().contains("approved, merging") && merging(&mut s), "{}", s.text());
+    // the beats change nothing of it
     let now = sw::clock::now();
     for n in 1..=3 { let fx = update(&mut s.s, Event::Tick(now + n * 1000)); assert!(fx.is_empty() || !fx.contains(&sw::board::update::Effect::Close)); }
-    assert!(s.text().contains("PRJ-1: approved, merging"), "{}", s.text());
+    assert!(!s.text().contains("approved, merging") && merging(&mut s), "{}", s.text());
     settle(&id); s.load();
     assert!(!s.screen(80).join("\n").contains("unread"), "a done row says nothing more than its name and time");
     // the ? menu: every key it has, with its line
@@ -40,10 +42,10 @@ fn a_result_stays_through_the_beats_and_the_menu_names_every_key_and_no_old_one(
     assert!(has(&text, &format!(r"\n alt: only shows or hides *\n[ ▌]  {} +hide the chat's latest message", k("chatMessage"))), "{text}");
     assert!(has(&text, r"\n plain keys *\n[ ▌]  ↑ ↓ +move between tasks"), "{text}");
     // nothing of the keys that are gone
-    assert!(!has(&text, r"Coordinator's chat|restart|new Coordinator|ctrl\+[sdog]\b|alt\+[vhrn]\b|delete  "), "{text}");
+    assert!(!has(&text, r"Coordinator's chat|restart|new Coordinator|ctrl\+[dog]\b|alt\+[vhrn]\b|delete  "), "{text}");
     assert!(text.contains("↑↓ pick a key · enter press it · esc close the menu"), "{text}");
     // a line picked with the arrows does what its key does: archive, and the task leaves the list's top
-    s.press(&["down", "down", "down", "down", "enter"]); assert!(task("proj/2").b("archivedAt"));
+    s.press(&["down", "down", "down", "down", "down", "enter"]); assert!(task("proj/2").b("archivedAt"));
     assert!(!s.screen(120)[..12].join("\n").contains("Other"), "{}", s.text());
     s.rows = 34;
     // the archive: its own hint line, and ctrl+z there undoes the archiving
@@ -53,7 +55,7 @@ fn a_result_stays_through_the_beats_and_the_menu_names_every_key_and_no_old_one(
     assert!(!s.s.archive_view); assert!(!task("proj/2").b("archivedAt"), "ctrl+z takes the archiving back");
     // pinned: a group of its own on top
     s.s.sel = "proj/2".into(); s.load(); s.press(&["ctrl+p"]);
-    assert!(has(&s.screen(80).join("\n"), r"\n ▾ pinned *\n"), "{}", s.screen(80).join("\n"));
+    assert!(has(&s.screen(80).join("\n"), r"\n   ▾ pinned *\n"), "{}", s.screen(80).join("\n"));
 }
 
 #[test]
@@ -65,10 +67,11 @@ fn an_agent_that_needs_a_login_is_told_by_yes_to_try_again() {
     let mut l = open(&w.root, 34); l.s.sel = lid.clone(); l.load();
     let t = l.text();
     assert!(t.contains("│  Needs a login"), "{t}");
-    assert!(t.contains(&format!("{} tell this task's agent to try again · space talk to the agent · enter open the agent · ? all keys", key_name("yes"))), "{t}");
+    assert!(t.contains(&format!("{} tell this task's agent to try again · space talk to the agent · alt+o open the agent · ? all keys", key_name("yes"))), "{t}");
     let n = prompts(&w, lt.at("link").s("pane")).len();
     l.press(&["ctrl+l"]);
-    assert!(l.text().contains("told the agent to continue") && !l.text().contains("Nothing here waits for a yes"), "{}", l.text());
+    // nothing said under the chat: the row says it goes on
+    assert!(!l.text().contains("told the agent to continue") && !l.text().contains("Nothing here waits for a yes") && l.text().contains("About to continue"), "{}", l.text());
     let after = prompts(&w, lt.at("link").s("pane"));
     assert_eq!(after.len(), n + 1); assert!(after.last().unwrap().contains("Continue the task where you left off"), "{after:?}");
     assert_eq!(task(&lid).s("stage"), "working");

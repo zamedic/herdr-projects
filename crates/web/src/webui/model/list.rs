@@ -20,11 +20,11 @@ pub fn row_of(s: &State, t: &Theme, r: &Obj, now: i64) -> Value {
     let live = r.s("state") != "done" && r.at("progress").is_number();
     json!({
         "id": r.s("id"), "label": id_label(if r.b("rid") { r.s("rid") } else { r.s("id") }), "tag": row_tag(r, &s.data.keys), "host": r.s("host"), "title": row_title(s, r),
-        "strong": (["working", "blocked", "error"].contains(&r.s("state"))), "mark": m.s("t"), "markDim": m.b("d"), "markBold": m.b("b"), "color": status_ink(r).name(), "live": is_live(r),
+        "strong": false, "mark": m.s("t"), "markDim": m.b("d"), "markBold": m.b("b"), "color": status_ink(r).name(), "live": is_live(r),
         "says": pieces(&sentence(r)), "progress": if live { json!(r.f("progress").clamp(0.0, 100.0)) } else { Value::Null },
         "percent": f.percent.text().trim(), "eta": f.eta.text(), "review": pieces(&f.review), "pr": pieces(&f.pr), "prUrl": crate::review_page::render::web_url(r.s("pr")),
         "time": format!("{}{}", f.elapsed, if f.ago { " ago" } else { "" }), "quiet": (r.s("state") == "done"),
-        "pinned": r.b("pinned"), "archived": r.b("archivedAt"), "app": r.s("app"), "made": r.at("automation").b("id"), // `made`: by an automation, whose colour its [auto] tag takes
+        "pinned": r.b("pinned"), "archived": r.b("archivedAt"), "app": r.s("app"), "made": r.at("automation").b("id"), // `made`: by an automation (its [auto] tag is dimmed, as every tag is)
     })
 }
 /// One automation's row, in a task row's places: the word on or off where a task has its number, its trigger (and why
@@ -58,22 +58,30 @@ pub fn list_of(s: &State, t: &Theme) -> Value {
     let push = |groups: &mut Vec<Obj>, row: Value| { if let Some(g) = groups.last_mut() { if let Some(a) = g.get_mut("rows").and_then(|x| x.as_array_mut()) { a.push(row); } } };
     // A folded heading's count: how many rows it hides, in words where automations are among them (`7 tasks, 1 automation`).
     let count = |folded: usize, autos: usize| if autos > 0 { json!(crate::board::update::heads::holds(folded, autos)) } else { json!(folded) };
-    // A coordinator's heading on autopilot has autopilot's mark, its columns and its line under it (board/view/pilot.rs),
-    // and the main Coordinator's row on top what it sums up of the others. Off: null.
-    let pilot = |id: &str| crate::board::view::pilot::shown(s, t, id).map(|p| json!({ "mark": pieces(&p.mark), "cols": p.cols.iter().map(|(_, c)| pieces(c)).collect::<Vec<_>>(), "under": pieces(&p.under) })).unwrap_or(Value::Null);
+    // A machine's or a project's row: its coordinator's state as a task's mark, where it says something, and its time
+    // (board/view/pilot.rs), and while on autopilot its status line (`under`), as a task's second line; null else.
+    let pilot = |x: Option<crate::board::view::pilot::Shown>| x.map(|x| json!({ "mark": pieces(&x.mark), "label": x.label, "cols": if x.time.is_empty() { vec![] } else { vec![pieces(&x.time)] }, "under": pieces(&x.under) })).unwrap_or(Value::Null);
     let coord = |id: &str| crate::board::update::coords::of_head(s, id).is_some();
+    // How far in each row stands (board/update/depth.rs): all machines → machine → project → task.
+    let deep = crate::board::update::depth::depths(&s.rows);
+    let top = crate::board::update::top::top_id(s);
     for (at, row) in s.rows.iter().enumerate() {
+        let depth = deep.get(at).copied().unwrap_or(0);
+        let deep_row = |mut v: Value| { if let Some(o) = v.as_object_mut() { o.insert("depth".into(), json!(depth)); } v };
         match row {
-            Row::Head { id, .. } if crate::board::update::pilot::is_main(id) => groups.push(obj(json!({ "name": crate::board::update::coords::of_head(s, id).map(|c| c.name).unwrap_or_default(), "id": id, "main": true, "coord": true, "sum": crate::board::update::coords::of_head(s, id).map(|c| crate::board::update::pilot::others(s, &c)).unwrap_or_default(), "pilot": pilot(id), "folded": false, "count": 0, "color": "text", "repo": false, "rows": [], "more": 0 }))),
-            Row::Head { name, id, autos: true, folded, folded_autos, .. } => groups.push(obj(json!({ "name": name, "id": id, "folded": *folded > 0, "count": count(*folded, *folded_autos), "color": "auto", "repo": false, "automations": true, "rows": [], "more": 0 }))),
-            // A machine's heading stands over its groups: one with no rows, that a tap folds and unfolds as a group's. One with
-            // nothing in view shows folded, `0 tasks`.
-            Row::Head { name, id, machine: true, folded, folded_autos, empty, .. } => groups.push(obj(json!({ "name": name, "id": id, "machine": true, "folded": *folded > 0 || *empty, "count": if *empty { json!("0 tasks") } else { count(*folded, *folded_autos) }, "color": "accent", "repo": false, "coord": coord(id), "pilot": pilot(id), "rows": [], "more": 0 }))),
-            // A repo's heading in the plain text colour, as its task titles, its key dimmed. A repo used lately with no task in
-            // view shows folded too, `0 tasks`.
-            Row::Head { name, id, folded, folded_autos, empty, .. } => groups.push(obj(json!({ "name": if s.by_repo { repo_label(name) } else { name.clone() }, "key": if s.by_repo { crate::board::tags::heading_key(s, at) } else { String::new() }, "id": id, "folded": *folded > 0 || *empty, "count": if *empty { json!("0 tasks") } else { count(*folded, *folded_autos) }, "color": if s.by_repo { REPO_HEAD_INK.name() } else if !["needs you", "ready to approve", "working", "to do", "done"].contains(&name.as_str()) { "subtext0" } else { group_ink(name).name() }, "repo": s.by_repo, "coord": coord(id), "pilot": pilot(id), "rows": [], "more": 0 }))),
-            Row::Auto(a) => push(&mut groups, auto_row_of(s, t, a, now)),
-            Row::Rec(r) => push(&mut groups, row_of(s, t, r, now)),
+            Row::Head { name, id, autos, machine, folded, folded_autos, empty } => {
+                // What the terminal board draws after the caret, in its inks (board/view/list.rs: heading_words): the name
+                // in the base colour (a machine's and the top row's bold), a status group's in its colour, what goes with
+                // it dimmed (a repo's key, what a folded row holds, what the top row holds).
+                let (words, shown) = crate::board::view::list::heading_words(s, t, &s.rows, at);
+                let repo = !*autos && (s.by_repo || id.starts_with(&format!("{}repo\t", crate::board::update::heads::HEAD)));
+                let color = if *autos { "auto" } else if *machine || *id == top || repo { REPO_HEAD_INK.name() } else if ["needs you", "ready to approve", "working", "to do", "done"].contains(&name.as_str()) { group_ink(name).name() } else { "subtext0" };
+                groups.push(obj(json!({ "name": if repo { repo_label(name) } else { name.clone() }, "key": if repo { crate::board::tags::heading_key(s, at) } else { String::new() }, "id": id,
+                    "folded": *folded > 0 || *empty, "count": if *empty { json!("0 tasks") } else { count(*folded, *folded_autos) }, "color": color, "repo": repo, "machine": *machine, "top": *id == top, "automations": *autos,
+                    "words": pieces(&words), "depth": depth, "coord": coord(id), "pilot": pilot(shown), "rows": [], "more": 0 })));
+            }
+            Row::Auto(a) => push(&mut groups, deep_row(auto_row_of(s, t, a, now))),
+            Row::Rec(r) => push(&mut groups, deep_row(row_of(s, t, r, now))),
             Row::Note(n) => if let Some(g) = groups.last_mut() { g.put("more", crate::re!(r"(\d+) more").captures(n).and_then(|c| c[1].parse::<i64>().ok()).unwrap_or(0)); },
         }
     }
@@ -101,6 +109,8 @@ pub fn list_of(s: &State, t: &Theme) -> Value {
             "machines": if s.scope == "*" { let l: Vec<String> = crate::board::update::remotes::others(s).into_iter().map(|m| { let n = crate::board::update::remotes::shown(s, &m.machine.label); if m.ok { n } else { format!("{n} (no answer)") } }).collect(); if l.is_empty() { "no others found".to_string() } else { l.join(", ") } } else { String::new() },
             "only": if s.all() && s.scope != "*" { s.scope.clone() } else { String::new() }, "filter": s.filter, "host": crate::remote::check::hostname(), "version": crate::store::files::VERSION,
         },
+        // The filter row under the header (shows.rs).
+        "shows": super::shows::shows_of(s),
         "groups": groups, "selected": s.sel,
         // Words on their way to another machine: rows of their own under the list, until that machine has taken them.
         "jobs": s.jobs.iter().map(|j| json!({ "id": j.s("id"), "text": j.s("text"), "failed": j.s("state") == "error", "msg": j.s("msg") })).collect::<Vec<_>>(),

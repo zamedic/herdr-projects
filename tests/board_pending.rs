@@ -27,15 +27,15 @@ fn tab_says_starting_at_once_and_the_real_state_replaces_it() {
     let id = w.add("Make f");
     let mut s = open(&w.root, 34);
     s.s.sel = id.clone(); s.load();
-    let fx = s.hold("tab");
+    let fx = s.hold("ctrl+s");
     // Nothing is done yet, and the board already says what is under way: on the row, with the working mark, and in the panel.
     assert_eq!(task(&id).s("stage"), "todo");
     assert_eq!(jobs(&fx).len(), 1, "{fx:?}");
     let lines = s.screen(120);
-    assert!(has(&row(&lines, "Make f"), r"^[ ▌]\S PRJ-1 +Make f +Starting…"), "{}", lines.join("\n"));
+    assert!(has(&row(&lines, "Make f"), r"^[ ▌]  \S PRJ-1 +Make f +Starting…"), "{}", lines.join("\n"));
     assert!(has(&lines.join("\n"), r"│  Now +Starting…") && !lines.join("\n").contains("No agent is on this yet"), "{}", lines.join("\n"));
     // The same key again while it starts: nothing is started twice, and the message says it is under way.
-    let again = s.hold("tab");
+    let again = s.hold("ctrl+s");
     assert!(jobs(&again).is_empty(), "{again:?}");
     assert!(s.text().contains("Still starting PRJ-1. One moment."), "{}", s.text());
     // The job ends and the board reads again: the real state stands on the row.
@@ -64,7 +64,7 @@ fn a_read_that_began_before_the_job_ended_does_not_take_the_word_away() {
     // The next read began after it: the task is pinned, and says so as it always does.
     s.load();
     assert!(s.s.pending.is_empty() && task(&id).b("pinned"));
-    assert!(has(&s.screen(120).join("\n"), r"▾ pinned[^\n]*\n[ ▌]○ PRJ-1 +Make g"), "{}", s.text());
+    assert!(has(&s.screen(120).join("\n"), r"▾ pinned[^\n]*\n[ ▌]  ○ PRJ-1 +Make g"), "{}", s.text());
 }
 
 #[test]
@@ -105,7 +105,7 @@ fn a_job_that_fails_says_so_in_red_on_its_row_and_in_its_panel() {
     let id = w.add("Breaks");
     let mut s = open(&w.root, 34);
     s.s.sel = id.clone(); s.load();
-    let fx = s.hold("tab");
+    let fx = s.hold("ctrl+s");
     // Gone before its job runs: the job fails, and the row says it could not start, and why.
     let j = jobs(&fx).remove(0);
     sw::store::tasks::update(&id, |t| { t.put("archivedAt", sw::clock::now()); Ok(sw::store::tasks::Change::Write) }).unwrap();
@@ -116,7 +116,7 @@ fn a_job_that_fails_says_so_in_red_on_its_row_and_in_its_panel() {
     s.load();
     let lines = s.screen(120);
     let r = row(&lines, "Breaks");
-    assert!(has(&r, r"^[ ▌]✗ PRJ-1 +Breaks +Could not start: "), "{}", lines.join("\n"));
+    assert!(has(&r, r"^[ ▌]  ✗ PRJ-1 +Breaks +Could not start: "), "{}", lines.join("\n"));
     assert!(has(&lines.join("\n"), r"│  Now +Could not start: "), "{}", lines.join("\n"));
     let inked = s.inked(120);
     assert!(inked.iter().any(|l| l.0.iter().any(|p| p.t.contains("Could not start") && p.c == sw::shown::ink::Ink::Red)), "said in red");
@@ -135,9 +135,11 @@ fn another_machines_row_waits_for_that_machine_to_show_what_was_done() {
     let now = sw::clock::now();
     let theirs = |stage: &str, state: &str| Ok(json!({ "host": "otherbox", "version": "0.2.0", "tasks": [{ "id": "proj/151", "title": "Theirs", "state": state, "stage": stage, "at": now, "created": now }] }));
     update(&mut s.s, Event::Remote { label: "otherbox".into(), answer: theirs("todo", "idle") });
-    s.press(&["alt+m"]);
+    // Alt+M round to every machine (it comes first in the round; this machine where herdr's sidebar has it).
+    for _ in 0..4 { if s.s.scope == "*" { break; } s.press(&["alt+m"]); }
+    assert_eq!(s.s.scope, "*");
     s.s.sel = "otherbox:proj/151".into(); sw::board::update::list::relist(&mut s.s);
-    let fx = s.hold("tab");
+    let fx = s.hold("ctrl+s");
     assert!(matches!(jobs(&fx).as_slice(), [Job::Far { action, .. }] if action == "delegate"), "{fx:?}");
     assert!(has(&row(&s.screen(120), "Theirs"), r"Starting…"), "{}", s.text());
     // That machine answered the action; its list, asked before, still shows the task as it was: the word stays.
@@ -250,7 +252,7 @@ fn opening_its_agent_or_words_to_it_leave_an_unfinished_action_alone() {
     let stop = s.hold("ctrl+x");
     assert!(matches!(jobs(&stop).as_slice(), [Job::Stop { .. }]), "{stop:?} {:?} {}", s.s.ask.as_ref().map(|a| a.q.clone()), s.text());
     // Into its pane while it stops: the pane opens, and the row still says it stops.
-    let open_it = s.hold("enter");
+    let open_it = s.hold("alt+o");
     assert!(matches!(jobs(&open_it).as_slice(), [Job::OpenAgent { .. }]), "{open_it:?} {}", s.text());
     assert!(has(&row(&s.screen(120), "Runs"), r"Stopping…"), "{}", s.text());
     // The pane's answer is not the stop's: the row and the panel still say it stops, after a read too.

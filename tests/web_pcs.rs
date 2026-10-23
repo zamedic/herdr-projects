@@ -68,7 +68,8 @@ fn the_web_board_goes_with_the_web_ui_on_another_pc_it_is_that_machines_board_an
     assert_eq!(scope(&board("pc-a", Some(pcs.clone()))), chosen);
     // back on this machine: what the board showed before it went
     assert_eq!(scope(&board("", Some(pcs.clone()))), "");
-    assert_eq!(scope(&call("c", "press", json!({ "id": "scope" }), "", Some(pcs.clone()))), "*");
+    // a pick of every machine, of your own (the scope key's round would go on to vm-a after this machine)
+    assert_eq!(scope(&call("c", "scope", json!({ "to": "*" }), "", Some(pcs.clone()))), "*");
     assert_eq!(scope(&board("pc-a", Some(pcs.clone()))), "vm-a");
     assert_eq!(scope(&board("local", Some(pcs.clone()))), "*");
     // a PC the board has no machine for: said, and the board stays as it is

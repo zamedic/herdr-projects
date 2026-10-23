@@ -1,6 +1,6 @@
-//! What a key does. The board's state decides it where a question, a draft, find, esc, enter or tab is involved; every
-//! other key is the entry of board/keys.rs that it presses, and `run` below says what each one does: a key with no arm
-//! there does not compile. While the text box holds words it owns the keyboard: only enter, tab, esc and ctrl+c act on
+//! What a key does. The board's state decides it where a question, a draft, find, esc, enter or the start key is involved;
+//! every other key is the entry of board/keys.rs that it presses, and `run` below says what each one does: a key with no arm
+//! there does not compile. While the text box holds words it owns the keyboard: only enter, the start key, esc and ctrl+c act on
 //! the board, so no shortcut fires in the middle of a draft.
 use super::actions as act;
 use super::list::relist;
@@ -23,6 +23,7 @@ pub fn handle(s: &mut State, p: &Press, fx: &mut Vec<Effect>) {
     let before = s.value();
     s.top_free = false; // a key brings the view back to the selected task
     press(s, p, fx);
+    super::skills::after(s, fx);
     // One printable character that did not go into the text box was a key of the board (?, space, y, n).
     s.lone_at = if p.ch.is_some() && before == s.value() { s.now } else { 0 };
     super::list::sync_reply(s);
@@ -36,7 +37,7 @@ fn press(s: &mut State, p: &Press, fx: &mut Vec<Effect>) {
     s.closing = None;
     if again && is(p, K::Close) { fx.push(Effect::Close); return; }
     if !s.paste_text.is_empty() { return super::paste::key(s, p); }
-    let (esc, close, tab) = (is(p, K::Back), is(p, K::Close), is(p, K::Delegate));
+    let (esc, close, start) = (is(p, K::Back), is(p, K::Close), is(p, K::Delegate));
     // An error stays until esc dismisses it; anything else is gone with the next key.
     if !s.msg.is_empty() && s.msg_kind == Ink::Red { if esc { s.msg.clear(); return super::pending::dismiss(s); } } else { s.msg.clear(); }
     if s.setup.is_some() { return super::setup::key(s, p, fx); }
@@ -46,6 +47,7 @@ fn press(s: &mut State, p: &Press, fx: &mut Vec<Effect>) {
     if s.editing.is_some() && super::edit::key(s, p, fx) { return; } // the settings page takes its own keys
     if s.auto().is_some() && super::autos::key(s, p, fx) { return; } // and so does an automation's row
     s.stick.clear();
+    if super::skills::key(s, p) { return; } // the skill list over the text box takes its keys first
     let text = s.value().trim().to_string();
     let r = s.current().cloned();
     if esc {
@@ -66,7 +68,7 @@ fn press(s: &mut State, p: &Press, fx: &mut Vec<Effect>) {
         return relist(s);
     }
     if s.mode == Mode::Find && enter { s.filter = text; s.mode = Mode::New; s.input.set_text(""); return relist(s); }
-    if !s.value().is_empty() && !enter && !tab && !close {
+    if !s.value().is_empty() && !enter && !start && !close {
         // A key marked `draft` only shows something, and does so here too: the draft is not touched.
         if s.mode == Mode::New { if let Some(k) = typed(p, |k| k.draft) { return run(s, k, r.as_ref(), fx); } }
         s.input.handle(p);
@@ -74,25 +76,25 @@ fn press(s: &mut State, p: &Press, fx: &mut Vec<Effect>) {
         return;
     }
     if close { s.closing = Some((s.now + CLOSE_WAIT, false)); return; }
-    if s.mode == Mode::Find { if !tab { s.input.handle(p); relist(s); } return; }
+    if s.mode == Mode::Find { if !start { s.input.handle(p); relist(s); } return; }
     if let Some(j) = s.job().cloned() { if text.is_empty() {
         // Words on their way to another machine: stop them, or take them back to change and send again.
         if is(p, K::Stop) { fx.push(Effect::Run(Job::StopDispatch { id: j.t("id") })); return; }
         if enter { fx.push(Effect::Run(Job::StopDispatch { id: j.t("id") })); s.input.set_text(j.s("text")); return; }
-        if tab { return; }
+        if start { return; }
     } }
-    // On a heading, with nothing typed: fold it, or unfold it.
+    // On a heading, with nothing typed: fold it, or unfold it ({open} goes into its coordinator).
     if enter && text.is_empty() && super::heads::selected(s).is_some() { let id = s.sel.clone(); return super::heads::toggle(s, &id, fx); }
     if enter { return act::enter(s, &text, r.as_ref(), fx); }
     // On a coordinator's row, with nothing typed: autopilot on (update/pilot.rs).
-    if tab && text.is_empty() && r.is_none() { if let Some(t) = super::pilot::selected(s) { return super::pilot::turn_on(s, &t, fx); } }
-    if tab { return act::tab(s, &text, r.as_ref(), fx); }
+    if start && text.is_empty() && r.is_none() { if let Some(t) = super::pilot::keyed(s) { return super::pilot::run(s, &t, true, fx); } }
+    if start { return act::tab(s, &text, r.as_ref(), fx); }
     // From here on the text box is empty.
     let scroll = is(p, K::Up) || is(p, K::Down);
     if s.full && scroll { return act::scroll_panel(s, if is(p, K::Up) { -1 } else { 1 }); }
     if s.full && (is(p, K::PageUp) || is(p, K::PageDown)) { let by = s.panel_height.saturating_sub(1).max(1) as i64; return act::scroll_panel(s, if is(p, K::PageUp) { -by } else { by }); }
     let key = typed(p, |k| has_run(k.id));
-    if let Some(k) = key { if on(s, k, r.as_ref()) { return run(s, k, r.as_ref(), fx); } }
+    if let Some(k) = key { if on(s, k, r.as_ref()) { return run_as(s, k, p, r.as_ref(), fx); } }
     s.input.handle(p);
     if s.mode == Mode::Find { relist(s); }
 }
@@ -103,7 +105,6 @@ fn answer(s: &mut State, p: &Press, esc: bool, close: bool, fx: &mut Vec<Effect>
         if !super::ask::still_valid(s, &a.valid) { s.ask = None; s.flash(format!("It changed while you were asked, so nothing was merged. Look at it again, then {}.", key_name("yes")), Ink::Yellow); return; }
         s.ask = None;
         if a.yes == Job::WebUiLink { s.flash("Pointing the web UI's link at the board's front door…", Ink::Muted); } // it takes a moment
-        if matches!(a.yes, Job::ArchiveDone { .. }) { s.flash("Archiving the done tasks…", Ink::Muted); } // so does closing their spaces
         return act::go(s, a.yes, fx);
     }
     if is(p, K::SayNo) { if let Some(no) = a.no { s.ask = None; return act::go(s, no, fx); } }
@@ -116,20 +117,29 @@ pub fn on(s: &State, k: K, r: Option<&Obj>) -> bool {
     match k { K::NextAttempt => r.map(|r| act::choosing(s, r)).unwrap_or(false), K::Free => s.held.as_ref().map(|h| !s.guest && !h.by.is_empty()).unwrap_or(false), _ => true }
 }
 /// What each key of the list does with the text box empty, and from its line in the ? menu.
-pub fn run(s: &mut State, k: K, r: Option<&Obj>, fx: &mut Vec<Effect>) {
+pub fn run(s: &mut State, k: K, r: Option<&Obj>, fx: &mut Vec<Effect>) { run_as(s, k, &Press::chord(&crate::board::keys::chord(k)), r, fx) }
+/// The same, with the press itself where the key reads it (tab and shift+tab go round the filters either way).
+pub fn run_as(s: &mut State, k: K, p: &Press, r: Option<&Obj>, fx: &mut Vec<Effect>) {
     match k {
         K::Up => act::move_by(s, -1),
         K::Down => act::move_by(s, 1),
+        K::Fold => super::heads::fold_key(s, true, fx),
+        // Into the selected row's agent: a task's, or a heading's coordinator.
+        K::Open => match r { Some(r) => act::open_agent(s, r, fx), None if super::heads::selected(s).is_some() => super::pilot::go_in(s, fx), None => s.flash("Nothing here has an agent to go into.", Ink::Muted) },
+        K::Unfold => super::heads::fold_key(s, false, fx),
         K::PageUp => act::move_by(s, -10),
         K::PageDown => act::move_by(s, 10),
+        K::Filter => super::shows::step(s, p, fx),
         K::Talk => act::flip_reply(s, r),
         K::Menu => s.menu = Some(crate::board::state::Menu { at: -1, ..Default::default() }),
         K::Yes => if let Some(r) = r { act::yes(s, r, fx) },
         K::SendBack => if let Some(r) = r { act::send_back(s, r, fx) },
         K::NextAttempt => if let Some(r) = r { act::next_attempt(s, r) },
-        K::Stop => match r { Some(r) => act::stop(s, r, fx), None => if let Some(t) = super::pilot::selected(s) { super::pilot::turn_off(s, &t, fx) } },
-        K::Archive => match r { Some(r) => act::archive_selected(s, r, fx), None if super::heads::selected(s).is_some() => super::archive_done::ask(s), None => s.flash("Select a task to archive or restore.", Ink::Muted) },
+        K::Stop => match r { Some(r) => act::stop(s, r, fx), None => if let Some(t) = super::pilot::keyed(s) { super::pilot::run(s, &t, false, fx) } },
+        K::Pilot => match super::pilot::keyed(s).filter(|_| r.is_none()) { Some(t) => super::pilot::toggle(s, &t, fx), None => s.flash(format!("{} turns a coordinator's autopilot on and off: select a machine's or a project's row.", key_name("autopilot")), Ink::Muted) },
+        K::Archive => match r { Some(r) => act::archive_selected(s, r, fx), None if super::heads::selected(s).is_some() => super::archive_project::key(s, fx), None => s.flash("Select a task to archive or restore.", Ink::Muted) },
         K::Pin => if let Some(r) = r { act::pin(s, r, fx) },
+        K::OpenLink => if let Some(r) = r { super::link::open(s, r, fx) },
         K::Settings => super::edit::open(s, r, fx),
         K::Undo => act::undo(s, fx),
         K::Find => { s.mode = Mode::Find; s.full = false; let f = s.filter.clone(); s.input.set_text(&f); }
@@ -142,10 +152,13 @@ pub fn run(s: &mut State, k: K, r: Option<&Obj>, fx: &mut Vec<Effect>) {
         K::Side => if !s.full { act::toggle_side(s, fx) },
         K::Panel => if s.full { act::fold_panel(s) } else { act::open_panel(s) },
         K::ArchiveView => act::toggle_archive(s),
-        K::ByRepo => { s.by_repo = !s.by_repo; fx.push(Effect::Save); relist(s); }
+        // By status, by repo, by machine, and round again.
+        K::ByRepo => { (s.by_repo, s.by_machine) = (!s.by_repo && !s.by_machine, s.by_repo); fx.push(Effect::Save); relist(s); }
         K::AllDone => { s.all_done = !s.all_done; relist(s); }
         K::Scope => super::remotes::next_scope(s, fx),
         // Decided by the state, above: nothing of their own here.
-        K::Enter | K::Newline | K::Delegate | K::Back | K::SayYes | K::SayNo | K::PutBack => { let _ = entry(k); }
+        // Its line in the ? menu: as the key itself does with nothing typed (the key goes through the state, above).
+        K::Delegate => match r { Some(r) => act::tab(s, "", Some(r), fx), None => if let Some(t) = super::pilot::keyed(s) { super::pilot::run(s, &t, true, fx) } },
+        K::Enter | K::Newline | K::Back | K::SayYes | K::SayNo | K::PutBack => { let _ = entry(k); }
     }
 }

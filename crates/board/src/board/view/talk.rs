@@ -1,9 +1,10 @@
 //! What a chat shows of a conversation: only its words. What a task's agent said, or its reviewer while the task is
 //! under review, and what was sent to it, each under a line that names whose words they are: the agent's or the
 //! reviewer's, yours, the Coordinator's or the board's. Never the program's screen (no tool call, no spinner, no
-//! input box), but for a program whose conversation cannot be read: then only the words on its screen. Read from the
-//! task's `snap` (data.rs), this machine's or another's.
+//! input box), but for a program whose conversation cannot be read: then only the words on its screen. A picture in
+//! what was sent stands as `[Image 1]`. Read from the task's `snap` (data.rs), this machine's or another's.
 use crate::board::keys::key_name;
+use crate::board::textbox::images::labelled;
 use crate::json::*;
 use crate::shown::words::brief;
 
@@ -15,20 +16,24 @@ pub struct Talk { pub who: String, pub name: String, pub parts: Vec<Part>, pub d
 /// Who typed what was sent to the program, by the name the chat gives them; as the Coordinator's chat has it, your own
 /// words are "You". (A machine that does not say who typed it says "you" for all of it.)
 fn sender(who: &str) -> &'static str { match who { "board" => "Board", "coordinator" => "Coordinator", _ => "You" } }
-/// What was sent is a brief or a prompt, often long: its beginning stands for it.
-fn sent(text: &str) -> String { brief(text, 600, " …") }
+/// What was sent is a brief or a prompt, often long: its beginning stands for it. A picture in it stands as its chip,
+/// `[Image 1]`, as it did in the box (textbox/images.rs).
+fn sent(text: &str) -> String { brief(&labelled(text), 600, " …") }
 /// Your own words stand once: where the conversation already ends with them, that part is yours.
 pub fn with_mine(parts: Vec<Part>, mine: &str) -> Vec<Part> {
     if mine.is_empty() { return parts; }
     let said: Vec<Part> = parts.into_iter().filter(|p| p.note.is_empty()).collect();
     let words = mine.trim();
     let head: String = words.chars().take(200).collect();
-    let same = said.last().map(|l| l.sent && (if l.whole.is_empty() { &l.text } else { &l.whole }).contains(&head)).unwrap_or(false);
+    // Where the program wrote its own name for a picture it took in (`[Image #39]`), the words are compared with each
+    // picture as its chip; else as they are, so other pictures with the same words are another message.
+    let chipped: String = labelled(words).chars().take(200).collect();
+    let same = said.last().map(|l| { let w = if l.whole.is_empty() { &l.text } else { &l.whole }; l.sent && (w.contains(&head) || w.contains("[Image #") && labelled(w).contains(&chipped)) }).unwrap_or(false);
     // A command (`/clear`) is answered by what it did, which the program writes down at once: it stands with its answer.
     let done = words.starts_with('/') && said.len() >= 2 && said[said.len() - 2].sent && said[said.len() - 2].text == words && !said[said.len() - 1].sent;
     if done { return said; }
     let mut out: Vec<Part> = if same { said[..said.len() - 1].to_vec() } else { said };
-    out.push(Part { by: "You".into(), text: words.into(), mine: true, sent: true, ..Default::default() });
+    out.push(Part { by: "You".into(), text: labelled(words), whole: words.into(), mine: true, sent: true, ..Default::default() });
     out
 }
 /// The part a chat's box opens on, and the only one it holds until you scroll up: the newest thing said, whoever said
@@ -55,8 +60,8 @@ pub fn talk(r: &Obj) -> Talk {
     let dialog = if who == "reviewer" { r.s("stage") == "reviewneeds" } else { r.s("stage") == "working" && if r.b("host") { r.s("state") == "blocked" } else { r.at("live").s("status") == "blocked" } };
     let note = |text: String, kind: &str, tone: &str| Part { by: String::new(), note: kind.into(), tone: tone.into(), text, ..Default::default() };
     if dialog {
-        parts.push(note(if who == "reviewer" { format!("The reviewer shows a dialog on its screen that waits for your answer. {} opens the task's space: the reviewer is in its tab \"{}\".", key_name("enter"), crate::flow::tabs::reviewer_tab(crate::store::reviews::review_number(r), "")) }
-            else { format!("The agent shows a dialog on its screen that waits for your answer: {} opens it.", key_name("enter")) }, "dialog", "yellow"));
+        parts.push(note(if who == "reviewer" { format!("The reviewer shows a dialog on its screen that waits for your answer. {} opens the task's space: the reviewer is in its tab \"{}\".", key_name("open"), crate::flow::tabs::reviewer_tab(crate::store::reviews::review_number(r), "")) }
+            else { format!("The agent shows a dialog on its screen that waits for your answer: {} opens it.", key_name("open")) }, "dialog", "yellow"));
     } else if !tk.is_object() && r.b("host") && who == "reviewer" {
         parts.push(note(format!("The reviewer is at work. {} runs an older herdr-projects, which does not send what its reviewer says: update it there.", r.s("host")), "old", ""));
     } else if !parts.iter().any(|p| !p.sent) && parts.last().map(|p| p.by != "You").unwrap_or(true) {
@@ -74,8 +79,9 @@ pub fn preview(r: &Obj) -> Preview {
 }
 /// The Coordinator's conversation, in the same parts.
 pub fn coord_talk(v: &crate::coordinator::look::Look, screen: &str) -> (Vec<Part>, bool, bool, bool) {
-    // An autopilot wake is no words of yours: it stands under its own name, in autopilot's colour (autopilot/wake.rs).
-    let mut parts: Vec<Part> = v.talk.iter().map(|m| if m.you && crate::autopilot::wake::is_wake(&m.text) { Part { by: "Autopilot".into(), text: sent(&m.text), whole: m.text.clone(), sent: true, tone: "pilot".into(), ..Default::default() } }
+    // An autopilot wake is no words of yours: it stands under its own name, as the board's words do, and says only why
+    // it woke (autopilot/wake.rs).
+    let mut parts: Vec<Part> = v.talk.iter().map(|m| if m.you && crate::autopilot::wake::is_wake(&m.text) { Part { by: "Autopilot".into(), text: sent(&crate::autopilot::wake::said(&m.text)), whole: m.text.clone(), sent: true, ..Default::default() } }
         else if m.you { Part { by: "You".into(), text: sent(&m.text), whole: m.text.clone(), sent: true, ..Default::default() } } else { Part { by: "Coordinator".into(), text: m.text.clone(), ..Default::default() } }).collect();
     if !parts.iter().any(|p| !p.sent) && !v.said.is_empty() { parts.push(Part { by: "Coordinator".into(), text: v.said.clone(), ..Default::default() }); }
     // A program whose conversation cannot be read: the words on its screen.

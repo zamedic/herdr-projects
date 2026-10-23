@@ -3,6 +3,8 @@
 //! watching device may not do. Also what the page needs to know of every colour name, mark and setting.
 use crate::common;
 use common::board::{open, web, web_as};
+// The web board in the terminal board's design: its own file, a module of this one (tests/main.rs is at its size).
+mod design;
 use common::*;
 use serde_json::json;
 use sw::json::*;
@@ -29,14 +31,14 @@ fn the_web_board_shows_the_terminal_boards_list_and_one_task_whole() {
     let s = web(&w, "board", json!({}));
     let got: Vec<Vec<String>> = s.at("list").arr("groups").iter().map(|g| std::iter::once(g.t("name")).chain(g.arr("rows").iter().map(|r| r.t("id"))).collect()).collect();
     assert_eq!(got, want);
-    assert_eq!(s.at("list").arr("groups").iter().map(|g| (g.t("name"), g.t("color"))).collect::<Vec<_>>(), vec![("ready to approve".into(), "green".into()), ("working".into(), "yellow".into()), ("to do".into(), "todo".into())]);
+    assert_eq!(s.at("list").arr("groups").iter().map(|g| (g.t("name"), g.t("color"))).collect::<Vec<_>>(), vec![(sw::shown::words::clean(&sw::remote::check::hostname()), "plain".into()), ("ready to approve".into(), "green".into()), ("working".into(), "yellow".into()), ("to do".into(), "todo".into())]); // the top row, this machine's, then its groups
     let rows = rows_of(&s);
     let (ready, working, todo) = (&rows[0], &rows[1], &rows[2]);
     assert_eq!((ready.s("title"), ready.s("mark"), ready.s("color")), ("Make f", "◆", "green"));
     assert_eq!(said(ready.at("says")), "Pass · 1 minor"); assert_eq!(ready.at("says")[0].s("c"), "green");
     assert_eq!(ready.at("review"), &json!([{ "t": "R#1", "c": "green" }]));
     assert!(regex::Regex::new(r"^\d+s ago$").unwrap().is_match(ready.s("time")), "{}", ready.s("time"));
-    assert_eq!((working.at("progress"), working.s("percent"), said(working.at("says")), working.at("strong"), working.at("live")), (&json!(40.0), "40%", "Drafting".to_string(), &json!(true), &json!(true)));
+    assert_eq!((working.at("progress"), working.s("percent"), said(working.at("says")), working.at("strong"), working.at("live")), (&json!(40.0), "40%", "Drafting".to_string(), &json!(false), &json!(true))); // a title is never bold: colour and weight are not status
     assert_eq!((todo.at("progress"), todo.at("says"), todo.at("live"), todo.s("mark")), (&json!(null), &json!([]), &json!(false), "○"));
     // a page that already has this is told only that
     let again = web(&w, "board", json!({ "have": s.s("mark") }));
@@ -57,12 +59,12 @@ fn the_web_board_shows_the_terminal_boards_list_and_one_task_whole() {
     assert_eq!((s.at("send").t("enter"), s.at("send").t("delegate"), s.at("send").t("place")), ("add it as a task".into(), "add it and put an agent on it".into(), "Add a task".into()));
     // opening the task's agent is a link to the web UI's own view of its pane; each press is a new going
     let t = task(&id);
-    let s = web(&w, "press", json!({ "id": "enter" }));
+    let s = web(&w, "press", json!({ "id": "open" }));
     assert_eq!((s.at("go").i("n"), s.at("go").s("pane"), s.at("go").s("workspace")), (1, t.at("link").s("pane"), t.at("link").s("workspace")));
     assert!(["chat", "terminal"].contains(&s.at("go").s("view")));
-    assert_eq!(web(&w, "press", json!({ "id": "enter" })).at("go").i("n"), 2);
+    assert_eq!(web(&w, "press", json!({ "id": "open" })).at("go").i("n"), 2);
     web(&w, "pick", json!({ "id": mine, "open": true }));
-    let none = web(&w, "press", json!({ "id": "enter" }));
+    let none = web(&w, "press", json!({ "id": "open" }));
     assert_eq!(none.at("go").i("n"), 2); assert!(none.at("msg").s("text").contains("No agent has been on this yet"), "{}", none.at("msg"));
 }
 
@@ -85,7 +87,7 @@ fn a_button_presses_the_boards_own_key_a_merge_asks_first_and_typed_words_are_se
     assert!(web_as(&w, "desk", "board", json!({})).unwrap().at("ask").is_null(), "the other browser was never asked");
     web_as(&w, "phone", "press", json!({ "id": "yes" })).unwrap();
     let s = web_as(&w, "phone", "press", json!({ "id": "sayYes" })).unwrap();
-    assert!(s.at("ask").is_null()); assert_eq!(s.at("msg").s("kind"), "green"); assert_ne!(task(&id).s("stage"), "approval");
+    assert!(s.at("ask").is_null()); assert_ne!(s.at("msg").s("kind"), "green"); assert_ne!(task(&id).s("stage"), "approval");
     // a watching device presses only what shows or hides
     assert!(web_as(&w, "phone", "press", json!({ "id": "archive", "role": "watch" })).unwrap_err().contains("only watch"));
     assert!(web_as(&w, "phone", "send", json!({ "text": "x", "role": "watch" })).unwrap_err().contains("only watch"));
@@ -94,7 +96,7 @@ fn a_button_presses_the_boards_own_key_a_merge_asks_first_and_typed_words_are_se
     // typed words: with no Coordinator they are added as a task, word for word
     web_as(&w, "phone", "pick", json!({ "id": "", "open": false })).unwrap();
     let s = web_as(&w, "phone", "send", json!({ "text": "Tidy the readme\nand its links" })).unwrap();
-    assert_eq!(s.at("kept"), &json!(false)); assert!(s.at("msg").s("text").ends_with("added"), "{}", s.at("msg"));
+    assert_eq!(s.at("kept"), &json!(false)); assert!(!s.at("msg").s("text").ends_with("added"), "no confirmation: the task is on the list: {}", s.at("msg"));
     let added = sw::store::tasks::list(Default::default()).into_iter().find(|t| t.s("title") == "Tidy the readme").unwrap();
     assert_eq!(added.s("description"), "and its links");
     assert_eq!(web_as(&w, "phone", "send", json!({ "text": "   " })).unwrap().at("kept"), &json!(false));

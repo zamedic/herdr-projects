@@ -42,19 +42,22 @@ pub fn with_sent(s: &mut State, target: &Target, v: &Look, mut c: Who) -> Who {
 pub fn sub_who(s: &mut State, t: &Theme, target: &Target) -> Who {
     if target.host.is_empty() {
         if !s.data.can_dispatch { return muted(t, target, format!("off here: {}", crate::coordinator::who::OFF_WORDS), vec![]); }
-        let (v, screen) = s.data.sub.as_ref().filter(|x| x.0 == target.to).map(|x| (x.1.clone(), x.2.clone())).unwrap_or_else(|| (none(), String::new()));
+        // This machine's main Coordinator, picked by its row: as the board reads it every time.
+        let (v, screen) = if target.to.is_empty() { (s.data.coord.clone(), s.data.coord_screen.clone()) } else { s.data.sub.as_ref().filter(|x| x.0 == target.to).map(|x| (x.1.clone(), x.2.clone())).unwrap_or_else(|| (none(), String::new())) };
         let fresh = !v.unseen.is_empty() && !s.chat_open;
         let mut c = renamed(coord_who(t, &v, &screen, fresh), target);
         c.always = !v.error.is_empty() && s.err_hid != v.error;
         return with_sent(s, target, &v, c);
     }
     let Some(m) = s.remotes.get(&target.host) else { return muted(t, target, format!("{} is not on this board", target.host), vec![]) };
+    // An older version there sends nothing of its coordinator at all.
+    if m.ok && target.to.is_empty() && m.coord.is_null() { return muted(t, target, format!("what you type goes to {}", target.host), vec![Part { text: format!("{} runs an older herdr-projects, which does not send what its Coordinator says: update it there.", target.host), note: "old".into(), ..Default::default() }]); }
     if m.coord.b("off") { return muted(t, target, "no coordinator there: coordinator.agent is none on that machine".into(), vec![]); }
     // An older version there has no coordinators but its top-level one.
-    if m.ok && !m.coords.is_object() {
+    if m.ok && !m.coords.is_object() && !target.to.is_empty() {
         return muted(t, target, format!("what you type goes to {}", target.host), vec![Part { text: format!("{} runs an older herdr-projects, which has no machine or project coordinators: update it there.", target.host), note: "old".into(), ..Default::default() }]);
     }
-    let v = crate::coordinator::far::read(m.coords.at(&target.to)).unwrap_or_else(none);
+    let v = crate::coordinator::far::read(if target.to.is_empty() { &m.coord } else { m.coords.at(&target.to) }).unwrap_or_else(none);
     let turn = v.talk.last().map(|x| x.text.clone()).unwrap_or_default();
     let c = Who { turn, ..renamed(coord_who(t, &v, "", false), target) };
     with_sent(s, target, &v, c)

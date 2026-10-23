@@ -112,7 +112,8 @@ fn where_the_board_names_a_repo_its_key_stands_beside_it_dimmed_but_never_twice_
     // Grouped by repo: each heading reads `name · KEY`, the key in the muted ink; the rows start with their tags alone.
     let mut b = common::board::open(&w.root, 30); b.s.side = false; b.press(&["alt+s"]); assert!(b.s.by_repo);
     let text = b.screen(100).join("\n");
-    assert!(has(&text, r"\n ▾ proj · PRJ\n[ ▌]○ PRJ-1 Mine ") && has(&text, r"\n ▾ gtm-agent · AGN\n[ ▌]○ AGN-1 Theirs "), "{text}");
+    // Under the machine's row on top, each a step further in (update/depth.rs).
+    assert!(has(&text, r"\n   ▾ proj · PRJ\n[ ▌]    ○ PRJ-1 Mine ") && has(&text, r"\n   ▾ gtm-agent · AGN\n[ ▌]    ○ AGN-1 Theirs "), "{text}");
     let inked = b.inked(100); let at = b.screen(100).iter().position(|l| l.contains("proj · PRJ")).unwrap();
     assert_eq!(inked[at].0.iter().find(|p| p.t.contains("PRJ")).map(|p| p.c), Some(sw::shown::ink::Ink::Muted));
     // Narrow: the heading is cut to the width, the key first.
@@ -144,7 +145,7 @@ fn upgrade_never_changes_a_key_you_saved_even_one_two_repos_share_and_the_top_li
     assert_eq!(keys(), json!({ "proj": "KEEP", "beta": "BB" })); assert!(sw::store::keys_given::stand_ins().is_empty());
     // The top line: where new tasks go, with the key beside the name, in the header's quiet ink; the web board's too.
     let id = w.add("Mine"); let mut b = common::board::open(&w.root, 30); b.s.sel = id; b.load();
-    assert!(b.screen(100)[0].starts_with(" herdr-projects  proj · KEEP · 1 to do"), "{}", b.screen(100)[0]);
+    assert!(b.screen(100)[0].starts_with(" herdr-projects  proj · KEEP") && b.screen(100)[1].starts_with(" All 1 "), "{:?}", b.screen(100));
     let s = common::board::web_as(&w, "keys-top", "board", json!({})).unwrap();
     assert_eq!((s.at("list").at("head").s("where"), s.at("list").at("head").s("whereKey")), ("proj", "KEEP"));
 }

@@ -32,7 +32,7 @@ fn open() -> Client {
     let ctx = Ctx { cwd: last_folder(), web: true, ..Default::default() };
     let keys = crate::store::keys_given::keys_note(); // every repo has a short key: what was given, said once
     let mut s = State::new(ctx, Data::default());
-    if !keys.is_empty() { s.flash(keys, crate::shown::ink::Ink::Green); }
+    if !keys.is_empty() { s.flash(keys, crate::shown::ink::Ink::Muted); }
     // The web board keeps its own few choices, in a file of its own: it never writes the terminal board's.
     // The selection is where the terminal board left it, and so is whose board it shows (this machine, every machine
     // or one), unless a board was picked on the web: that one is the web's own ("scope", kept before, is not: every
@@ -40,10 +40,12 @@ fn open() -> Client {
     let view = terminal_view();
     s.sel = view.t("sel");
     let p = crate::store::files::read_obj(&prefs_file()).unwrap_or_default();
-    s.by_repo = p.b("byRepo"); s.all_done = p.b("allDone"); s.chat_open = p.s("chat") != "closed";
+    s.by_repo = p.b("byRepo"); s.by_machine = p.b("byMachine") && !s.by_repo; s.all_done = p.b("allDone"); s.chat_open = p.s("chat") != "closed";
     let own = p.get("ownScope").and_then(|x| x.as_str()).map(String::from);
     s.web.own_scope = own.is_some();
     s.scope = own.unwrap_or_else(|| view.t("scope"));
+    // The filter shown on the filter row, the web's own as the terminal board keeps its own.
+    s.show = p.at("show").as_u64().map(|n| (n as usize).min(crate::board::update::shows::SHOWS.len() - 1)).unwrap_or(0);
     s.folded = p.arr("folded").iter().filter_map(|x| x.as_str()).map(String::from).collect();
     Client { s, inbox: Arc::new(Mutex::new(vec![])), at: 0, machines_at: 0, boards_at: 0, id: String::new() }
 }
@@ -72,11 +74,11 @@ pub fn save_prefs(s: &State) {
     let scope = s.web.followed.clone().unwrap_or_else(|| s.scope.clone());
     // Only a board picked on the web is kept (picked): any other save leaves the web following the terminal board.
     let own = if s.web.own_scope { json!(scope) } else { Value::Null };
-    let _ = crate::store::files::write_json(&prefs_file(), &json!({ "byRepo": s.by_repo, "allDone": s.all_done, "ownScope": own, "folded": s.folded, "chat": if s.chat_open { "open" } else { "closed" } }));
+    let _ = crate::store::files::write_json(&prefs_file(), &json!({ "byRepo": s.by_repo, "byMachine": s.by_machine, "allDone": s.all_done, "ownScope": own, "folded": s.folded, "show": s.show, "chat": if s.chat_open { "open" } else { "closed" } }));
 }
 /// Everything read again: the tasks, the closer look at the selected one and the one the chat talks to.
 pub fn reload(c: &mut Client) {
-    let wants = Wants { ids: vec![c.s.sel.clone(), c.s.reply_id.clone()], cwd: c.s.ctx.cwd.clone(), own_pane: String::new(), web: true, coord: crate::board::update::coords::wanted(&c.s), mine: None };
+    let wants = Wants { ids: vec![c.s.sel.clone(), c.s.reply_id.clone()], cwd: c.s.ctx.cwd.clone(), own_pane: String::new(), web: true, coord: crate::board::update::coords::wanted(&c.s), mine: None, looks: crate::board::update::coords::looks_wanted(&c.s), skills: String::new() };
     let d = load(&wants);
     let fx = update(&mut c.s, Event::Loaded(Box::new(d)));
     effects(c, fx, false);
@@ -180,6 +182,9 @@ pub fn call_with(client_id: &str, call: &str, args: Value, machine: &str, pcs: O
         "pick" => { super::view::pick(c, args.s("id"), args.b("open")); Ok(snapshot(c, "")) }
         "find" => { super::view::find(c, args.s("text")); Ok(snapshot(c, "")) }
         "fold" => { super::view::fold(c, args.s("id")); Ok(snapshot(c, "")) }
+        // The filter row: a filter shown (its place in it), and the grouping put back to by status (a chip's ×).
+        "show" => { super::view::show(c, args.at("n").as_u64().unwrap_or(0) as usize); Ok(snapshot(c, "")) }
+        "group" => { super::view::by_status(c); Ok(snapshot(c, "")) }
         // The sidebar's Boards section: every machine's board at a glance, and picking one of them.
         "boards" => Ok(super::boards::boards(c)),
         "scope" => { super::boards::choose(c, args.s("to"))?; picked(c); Ok(snapshot(c, "")) }

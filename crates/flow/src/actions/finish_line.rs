@@ -274,7 +274,7 @@ pub fn details(id: &str) -> Res<Value> {
     }));
     // On Azure DevOps: its pull request there now, and the main pipeline's runs (azure/shown.rs).
     if let Some(a) = crate::azure::shown::details(&t) { out.put("azure", a); }
-    // Waiting for a free slot: its place in the queue, and in words ("waiting for a free slot, Q#2").
+    // Waiting in the queue: its place, and in words ("waiting for a free slot, Q#2", "waiting for disk space, Q#1").
     if let Some(n) = crate::flow::live::queue_place(&t) { let mut q = t.clone(); q.put("queuePlace", n); out.put("queue", json!({ "place": n, "words": crate::shown::queue::words(&q) })); }
     // A merge that waits for GitHub's checks: which ones, each once (the row says only how far they are).
     if t.b("checksWait") { let w = t.at("checksWait"); out.put("checksWaitingFor", json!(crate::land::checks::unique(strings(w.at("names")).into_iter().chain(strings(w.at("flows")))))); }

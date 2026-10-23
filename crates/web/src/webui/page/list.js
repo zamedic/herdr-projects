@@ -1,11 +1,11 @@
-// The task list as the page draws it: the groups under their headings and one row per task. Everything shown comes
-// from the board (webui/list-model.js): this file only lays it out. A tap on a row selects it, as the cursor does on
+// The task list as the page draws it: the groups under their headings and one row per task, each as far in as the
+// terminal board sets it. Everything shown comes from the board (webui/model/list.rs): this file only lays it out. A tap on a row selects it, as the cursor does on
 // the terminal board; the selected row has an Open button, which shows it whole.
 /* global ResizeObserver, localStorage */
 import { h, icon, ink, said, markEl } from "./dom.js";
 
-// A task an automation made has its `[auto]` tag in the automations' colour.
-const titleOf = (r) => { const at = r.made ? r.title.lastIndexOf("[auto]") : -1; return at < 0 ? r.title : [r.title.slice(0, at), h("span.sw-c-auto", "[auto]"), r.title.slice(at + 6)]; };
+// What is said of a task after its title (`×3`, `[auto]`, `[research]` …) is dimmed: colour means status only.
+const titleOf = (r) => { const m = /(?: ×\d+)?(?: \[[a-z]+\])*$/.exec(r.title); const at = m && m[0] ? m.index : -1; return at < 0 ? r.title : [r.title.slice(0, at), h("span.sw-count", r.title.slice(at))]; };
 
 export function rowEl(r, { selected, opened, onPick, onOpen }) {
   const tags = h("span.sw-tags", r.review?.length ? ink(r.review, "sw-tag") : null,
@@ -16,7 +16,7 @@ export function rowEl(r, { selected, opened, onPick, onOpen }) {
     r.percent ? h("span.sw-num", r.percent) : null, r.eta ? h("span.sw-num", r.eta) : null);
   const says = said(r.says);
   // Enter on the selected row opens it, as its Open button does; on any other row it selects, as a tap does.
-  return h("li.sw-row", { className: `sw-row${selected ? " is-selected" : ""}${r.quiet ? " is-quiet" : ""}${r.archived ? " is-archived" : ""}${r.automation ? " is-automation" : ""}`, data: { id: r.id }, role: "option", "aria-selected": selected ? "true" : "false", tabIndex: 0,
+  return h("li.sw-row", { className: `sw-row${selected ? " is-selected" : ""}${r.quiet ? " is-quiet" : ""}${r.archived ? " is-archived" : ""}${r.automation ? " is-automation" : ""}`, data: { id: r.id }, style: `--d:${r.depth || 0}`, role: "option", "aria-selected": selected ? "true" : "false", tabIndex: 0,
     onclick: () => { if (!selected) onPick(r.id); }, onkeydown: (e) => { if (e.target !== e.currentTarget || (e.key !== "Enter" && e.key !== " ")) return; e.preventDefault(); if (selected && e.key === "Enter") onOpen(r.id); else onPick(r.id); } },
     markEl(r.mark, r.color, r.markDim),
     h("span.sw-main",
@@ -50,25 +50,35 @@ export function listEl(list, opts) {
   }
   return el;
 }
-// A heading: a machine's (over its groups) or a group's (over its rows), as the terminal board has them. A tap folds it
-// to its one line, with how many tasks (and automations) it holds, and unfolds it.
-// A coordinator's heading (and the main Coordinator's row on top) on autopilot is drawn as a task's row: autopilot's
-// mark first, in the marks' column left of the caret, its columns on the right, what it does now on a line under it.
-// The selected one has an Open button that shows the coordinator whole.
-function headEl(g, selected, onFold, onOpen) {
-  const count = g.main ? null : g.folded ? g.count : g.machine ? null : g.rows.length + g.more;
+// A heading, drawn as the terminal board draws it (board/view/list.rs): the top row (All machines, or the machine
+// shown), a machine's, a project's, a status group's or the automations'. A machine's and a project's row is its
+// coordinator's, read as a task's row: its mark in the marks' column (○ idle, ◐ working, ? asks you, ✗ could not start),
+// its time on the right, and while on autopilot a dimmed [autopilot] after its name (in its words) and what autopilot
+// does under it, in a task's grey second line (`Autopilot · next check-in in 12m · 3 of 20 today`). A status group's caret stands in the marks' column. Its
+// words come in their inks: the name in the base colour (a machine's and the top row's bold), a status group's in its
+// colour, what goes with it dimmed. A tap folds it to its one line, and unfolds it; the selected coordinator's row has
+// an Open button that shows the coordinator whole.
+function headEl(g, selected, { onFold, onOpen, onPick, actions = [], onPress }) {
   const p = g.pilot;
-  // A repo's heading has its key beside its name, dimmed: `gtm-agent · AGT`.
-  const mark = p ? h("span.sw-pilot-mark", { "aria-label": "on autopilot" }, ink(p.mark)) : null;
-  const words = [g.key ? h("span", g.name, h("span.sw-repo-key", ` · ${g.key}`)) : g.name,
-    count === null ? null : h("span.sw-count", String(count)), g.sum ? h("span.sw-count", ` · ${g.sum}`) : null];
-  const tag = g.machine || g.main ? "h2.sw-machine-name" : "h3.sw-group-name";
-  const cols = p?.cols?.length ? h("span.sw-pilot-cols", p.cols.map((c) => ink(c))) : null;
-  const under = p ? h("span.sw-pilot-says", ink(p.under)) : null;
-  if (!g.id) return h(`${tag}.sw-c-${g.color}${p ? ".sw-on-pilot" : ""}`, mark, words, cols, under);
-  const open = g.coord && selected ? h("button.btn.sw-open", { type: "button", "aria-label": `Open ${g.name}`, onclick: (e) => { e.stopPropagation(); onOpen(g.id); } }, "Open", icon("right")) : null;
-  return h(`${tag}.sw-c-${g.color}${selected ? ".is-selected" : ""}${g.main ? ".sw-main-row" : ""}${p ? ".sw-on-pilot" : ""}`,
-    h("button.sw-fold", { type: "button", "aria-expanded": g.folded ? "false" : "true", title: g.main ? "The Coordinator" : g.folded ? "Unfold" : "Fold", onclick: () => onFold(g.id) }, mark, g.main ? null : h("span.sw-caret", { "aria-hidden": "true" }, g.folded ? "▸" : "▾"), words), cols, open, under);
+  const kind = g.top ? "top" : g.machine ? "machine" : g.repo ? "project" : g.automations ? "autos" : "group";
+  // (Drawn as a task's mark is: the round ones at one size, dom.js.)
+  const m = p?.mark?.find((x) => x.t.trim()) || null;
+  const mark = p ? h("span.sw-head-mark", { role: "img", "aria-label": p.label || "no state" }, m ? markEl(m.t, m.c, !!m.d) : h("span.sw-mark")) : null;
+  const words = h("span.sw-head-words", ink(g.words));
+  const time = p?.cols?.length ? h("span.sw-time.sw-head-time", p.cols.map((c) => ink(c))) : null;
+  const under = p?.under?.length ? h("span.sw-says.sw-head-says", ink(p.under)) : null;
+  // Selected: Open shows its coordinator whole. A project with none to open (archived, in the archive) has its buttons
+  // here instead (Restore this project).
+  const open = !selected ? null : g.coord ? h("span.sw-head-acts", h("button.btn.sw-open", { type: "button", "aria-label": `Open ${g.name}`, onclick: (e) => { e.stopPropagation(); onOpen(g.id); } }, "Open", icon("right")))
+    : actions.length ? h("span.sw-row-acts", actions.map((b) => h("button.btn.sw-open", { type: "button", onclick: (e) => { e.stopPropagation(); onPress?.(b.id); } }, b.label[0].toUpperCase() + b.label.slice(1)))) : null;
+  const caret = (cls) => h(`button.sw-caret${cls}`, { type: "button", "aria-expanded": g.folded ? "false" : "true", "aria-label": `${g.folded ? "Unfold" : "Fold"} ${g.name}`, title: g.folded ? "Unfold" : "Fold", onclick: (e) => { e.stopPropagation(); onFold(g.id); } }, g.folded ? "▸" : "▾");
+  if (!g.id) return h(`div.sw-hrow.is-${kind}`, { style: `--d:${g.depth || 0}` }, h("span.sw-hline", mark || h("span.sw-mark"), words, time));
+  // A coordinator's row is selected by a tap, as a task's row is (its coordinator is then the other one to talk to),
+  // and folds by its caret; a status group's folds by a tap anywhere on it, as it has nobody to talk to.
+  if (!g.coord && !g.repo) return h(`div.sw-hrow.is-${kind}.is-fold${selected ? ".is-selected" : ""}`, { data: { id: g.id }, style: `--d:${g.depth || 0}`, onclick: () => onFold(g.id) }, h("span.sw-hline", caret(".sw-head-caret"), words, time));
+  return h(`div.sw-hrow.is-${kind}${selected ? ".is-selected" : ""}`, { data: { id: g.id }, style: `--d:${g.depth || 0}`, role: "option", "aria-selected": selected ? "true" : "false", tabIndex: 0,
+    onclick: () => { if (!selected) onPick(g.id); }, onkeydown: (e) => { if (e.target !== e.currentTarget || (e.key !== "Enter" && e.key !== " ")) return; e.preventDefault(); if (selected && e.key === "Enter") onOpen(g.id); else onPick(g.id); } },
+    h("span.sw-hline", mark, caret(""), words, time, open?.classList.contains("sw-head-acts") ? open : null), under, open?.classList.contains("sw-head-acts") ? null : open);
 }
 // Machines whose tasks could not be read: one notice over the list, each machine a line with what to do behind it.
 // Dismissed, it stays away in this browser until another machine stops answering or one answers for another reason.
@@ -86,12 +96,13 @@ function unreadEl(list) {
       u.detail.length ? h("details", h("summary", "What to do"), h("pre.sw-unread-detail", u.detail.join("\n"))) : null))) : null;
   return [box, ...asking.map((u) => h("p.sw-asking", { role: "status" }, u.line))].filter(Boolean);
 }
-function drawList(list, { opened, onPick, onOpen, onMore, onFold }) {
+function drawList(list, { opened, onPick, onOpen, onMore, onFold, actions, onPress }) {
   const unread = unreadEl(list);
   if (!list.groups.length && !list.jobs.length) return unread.length ? h("div.sw-list", unread, list.empty ? h("p.sw-empty", list.empty) : null) : h("p.sw-empty", list.empty);
-  const jobs = list.jobs.length ? h("section.sw-group", h("h3.sw-group-name.sw-c-overlay0", "on their way"), h("ul.sw-rows", list.jobs.map((j) => jobEl(j, { selected: j.id === list.selected, onPick })))) : null;
-  return h("div.sw-list", { role: "listbox", "aria-label": "Tasks" }, unread, jobs, list.groups.map((g) => g.machine || g.main ? headEl(g, g.id === list.selected, onFold, onOpen) : h("section.sw-group",
-    headEl(g, g.id === list.selected, onFold, onOpen),
-    h("ul.sw-rows", g.rows.map((r) => rowEl(r, { selected: r.id === list.selected, opened: r.id === opened, onPick, onOpen }))),
-    g.more ? h("button.btn.btn-ghost.sw-more", { type: "button", onclick: () => onMore(g) }, `Show ${g.more} more`) : null)));
+  const jobs = list.jobs.length ? h("section.sw-group", h("div.sw-hrow.is-group", h("span.sw-hline", h("span.sw-mark"), h("span.sw-head-words.sw-c-overlay0", "on their way"))), h("ul.sw-rows", list.jobs.map((j) => jobEl(j, { selected: j.id === list.selected, onPick })))) : null;
+  // Each heading over its rows, each row as far in as it is deep: all machines → machine → project → task.
+  return h("div.sw-list", { role: "listbox", "aria-label": "Tasks" }, unread, jobs, list.groups.map((g) => h(`section.sw-group.is-${g.top ? "top" : g.machine ? "machine" : g.repo ? "project" : g.automations ? "autos" : "group"}`,
+    headEl(g, g.id === list.selected, { onFold, onOpen, onPick, actions, onPress }),
+    g.rows.length ? h("ul.sw-rows", g.rows.map((r) => rowEl(r, { selected: r.id === list.selected, opened: r.id === opened, onPick, onOpen }))) : null,
+    g.more ? h("button.btn.btn-ghost.sw-more", { type: "button", style: `--d:${g.rows[0]?.depth ?? g.depth ?? 0}`, onclick: () => onMore(g) }, `Show ${g.more} more`) : null)));
 }

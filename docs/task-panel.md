@@ -184,7 +184,7 @@ a repo's entry `you`). `Esc` goes back to the list. On another machine's heading
 
 ## A coordinator in the panel
 
-On a coordinator's row (the main Coordinator's on top of the list, a machine's or a repo's heading) the panel shows that
+On a coordinator's row (a machine's or a project's row) the panel shows that
 coordinator, in the same form:
 
 - **Status**: `State` (its chat's, `idle` or `working`; on [autopilot](autopilot.md), autopilot's word), `Last`, its
@@ -196,7 +196,7 @@ coordinator, in the same form:
 - `Alt+T` shows it whole, and while on its last 20 wakes: when, why, and whether it answered.
 
 `Ctrl+E` there opens its settings page, in this page's form and keys: its own rows first, under `This coordinator`,
-then on this machine's heading your own settings, on a repo's heading your entry for that repo. While autopilot is on,
+then on this machine's row your own settings, on a project's row your entry for that repo. While autopilot is on,
 `Enter` on an autopilot row other than the goal saves it for this time only, and a line under the rows says so. Another
 machine's coordinator's page is shown whole, to read; it is changed on that machine.
 

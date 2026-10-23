@@ -1,80 +1,64 @@
-//! A coordinator's row as the list draws it, in a task's grammar while autopilot is on: autopilot's mark in the marks'
-//! column, left of the caret (`◎`, in the colour of its state, as a task's mark is), the timing in the columns on the right where a task
-//! keeps its progress and an automation when it fires (`2 of 5 added  ✓ HSW-92  next in 40m`: the first go first where
-//! room is short), and what it does now on the line under its name, as a live task's second line
-//! (`On · woke 12m ago: HSW-92 merged`). The main Coordinator's row, on top, is its name and what it sums up of the
-//! others (`2 others on · 1 needs you`). Off, nothing of autopilot shows.
-use crate::board::state::{Row, State};
+//! A machine's or a project's row (and `All machines`) as the list draws it: its coordinator, as a task's row is its
+//! agent. The same marks as tasks, in the marks' column left of the caret, in their colours: `○` idle (also one that
+//! never ran or was stopped), `◐` working, `?` it asks you (`!` it wants your OK), `✗` it could not start. On autopilot
+//! it keeps that mark: autopilot shows only in the board's own patterns, a dimmed `[autopilot]` after its name (as a
+//! task's `[research]`) and a status line under it in the grey of a task's (`Autopilot · next check-in in 12m · 3 of
+//! 20 today`, `Working on AFS-2`, `Needs you · …`). On the right only the time: `3m` while it works, `1h ago` else,
+//! nothing when it never ran. Off, one line: what it says is in the chat.
+use crate::board::state::State;
 use crate::board::theme::Theme;
-use crate::board::update::coords::of_head;
-use crate::board::update::pilot::{others, view};
+use crate::board::update::coords::{look_of, of_head};
+use crate::board::update::pilot::view;
 use crate::json::*;
 use crate::shown::ink::{Ink, Inked};
 
-/// Autopilot's mark: a ring around its goal, of the family of a task's marks (round, a diamond or a sign) and an
-/// automation's arrow going round, one column wide as they are.
-pub const PILOT_MARK: &str = "◎";
-/// What a coordinator's row shows of its autopilot while it is on: its mark, its columns (the least needed first) and
-/// its line under the name.
-pub struct Shown { pub mark: Inked, pub cols: Vec<(&'static str, Inked)>, pub under: Inked }
-/// The ink of a state: red where it needs you, yellow while it works (as a task's), plain text else.
-fn ink_of(state: &str) -> Ink { match state { "needs you" | "could not start" => Ink::Red, "working" => Ink::Yellow, _ => Ink::Plain } }
-/// What the row of the coordinator a heading stands for shows of its autopilot, while it is on.
+/// What a coordinator's row shows: its mark (with the words a reader hears for it), its time, whether it is on
+/// autopilot, and then its status line (empty else).
+pub struct Shown { pub mark: Inked, pub label: &'static str, pub time: Inked, pub on: bool, pub under: Inked }
+/// The tag after the name of a coordinator on autopilot, dimmed as a task's `[research]` is.
+pub const PILOT_TAG: &str = "[autopilot]";
+/// The row of the coordinator a heading stands for. None for a heading with none (a status group's).
 pub fn shown(s: &State, t: &Theme, id: &str) -> Option<Shown> {
     let c = of_head(s, id)?;
-    let v = view(s, &c);
-    if !v.b("on") { return None; }
-    let st = v.s("state");
-    let ink = ink_of(st);
-    let mark = Inked::of(PILOT_MARK, ink);
-    let mark = match st { "needs you" | "could not start" => mark.bold(), "asleep" => mark.quiet(), _ => mark };
-    // What it does now; a machine on an older version sends only its line.
-    let said = if v.b("activity") { v.t("activity") } else { v.t("line") };
-    let (word, rest) = said.split_once(" · ").map(|(a, b)| (a.to_string(), format!(" · {b}"))).unwrap_or((said.clone(), String::new()));
-    let under = Inked::of(word, if ink == Ink::Red { Ink::Red } else { Ink::Soft }).add(Inked::of(rest, Ink::Soft));
-    // The last task it added: with its mark and its tag where the board has it, as an automation's last task.
-    let item = if v.b("lastId") { let at = if c.host.is_empty() { v.t("lastId") } else { format!("{}:{}", c.host, v.s("lastId")) }; s.items.iter().find(|x| x.s("id") == at) } else { None };
-    let last = match item {
-        Some(m) => super::fields::mark(t, m).add(Inked::plain(" ")).add(Inked::of(crate::board::tags::number_tag(m, &s.data.keys, &s.scope, false), Ink::Muted)),
-        None if v.b("last") => Inked::of(format!("last {}", v.s("last")), Ink::Muted),
-        None => Inked::new(),
-    };
-    let cols = [("added", Inked::of(v.t("added"), Ink::Muted)), ("last", last), ("next", Inked::of(v.t("next"), Ink::Muted))].into_iter().filter(|(_, x)| !x.is_empty()).collect();
-    Some(Shown { mark, cols, under })
+    // No coordinator can run here (`coordinator.agent none`): this machine's rows are headings only.
+    if c.host.is_empty() && !s.data.can_dispatch { return None; }
+    // Another machine that sends nothing of its coordinators (an older version): the column blank. One it sends nothing of
+    // never ran there: `○`.
+    let sends = c.host.is_empty() || s.remotes.get(&c.host).is_some_and(|m| m.coords.is_object() && !m.coord.b("off"));
+    if !sends { return Some(Shown { mark: Inked::plain(" "), label: "", time: Inked::new(), on: false, under: Inked::new() }); }
+    let v = look_of(s, &c).unwrap_or_default();
+    let p = view(s, &c);
+    let on = p.b("on");
+    let st = if on { p.s("state") } else { "" };
+    let working = ["working", "starting"].contains(&v.state.as_str());
+    let (mark, label) = if !v.error.is_empty() || st == "could not start" { (Inked::of(t.mark("error", ""), Ink::Red).bold(), "could not start") }
+        else if v.state == "blocked" { (Inked::of(t.mark("blocked", ""), Ink::Red).bold(), "wants your OK") }
+        else if !v.asks.is_empty() { (Inked::of(t.mark("blocked", "question"), Ink::Red).bold(), "asks you") }
+        else if working { (Inked::of(t.mark("working", ""), Ink::Yellow), "working") }
+        else { (Inked::of(t.mark("idle", ""), Ink::Muted), "idle") };
+    // Something you did to it is under way (update/pending.rs): its row says so as a task's does, `Starting…`, the
+    // working mark; one that did not work, in red (why is said under the chat, as an error is).
+    if let Some(p) = s.pending.get(&c.key()) {
+        return Some(match &p.failed { Some(why) => Shown { mark: Inked::of(t.mark("error", ""), Ink::Red).bold(), label: "could not do it", time: Inked::of(why.split(':').next().unwrap_or(why).to_string(), Ink::Red), on, under: Inked::new() },
+            None => Shown { mark: Inked::of(t.mark("working", ""), Ink::Yellow), label: "under way", time: Inked::of(p.word.clone(), Ink::Muted), on, under: Inked::new() } });
+    }
+    let time = if working && v.began > 0 { Inked::of(crate::shown::words::age(s.now - v.began), Ink::Yellow) }
+        else if v.at > 0 { Inked::of(format!("{} ago", crate::shown::words::age(s.now - v.at)), Ink::Muted) } else { Inked::new() };
+    // Its status line, in the grey of a task's (row.rs: status_line). A machine on an older version sends none.
+    let under = if on { Inked::of(crate::shown::words::clean(p.s("status")), Ink::Soft) } else { Inked::new() };
+    Some(Shown { mark, label, time, on, under })
 }
-/// The main Coordinator's row's own words: its name, then what it sums up of the others.
-pub fn main_head(s: &State, id: &str) -> Inked {
-    let Some(t) = of_head(s, id) else { return Inked::new() };
-    let sum = others(s, &t);
-    let named = Inked::plain(t.name.clone()).bold();
-    if sum.is_empty() { return named; }
-    let (on, need) = sum.split_once(" · ").map(|(a, b)| (a.to_string(), format!(" · {b}"))).unwrap_or((sum, String::new()));
-    named.add(Inked::of(format!(" · {on}"), Ink::Muted)).add(Inked::of(need, Ink::Red))
-}
-/// A coordinator's heading, drawn: its caret (`▾ `, or blanks where it has none), its name and what follows it, then a
-/// machine's rule (`rule`) to the edge. On autopilot its mark goes in the marks' column, as a task's, and the caret one
-/// step in, where a task's tag starts; its columns at the right edge (as many as fit) and its line under it, with when
-/// it next wakes at its end where that column had no room.
-pub fn placed(caret: Inked, named: Inked, pilot: Option<Shown>, rule: bool, width: usize) -> (Inked, Option<Inked>) {
-    let drawn_rule = |n: usize| if rule && n >= 4 { Inked::plain(" ").add(Inked::of("─".repeat(n - 2), Ink::Muted)).add(Inked::plain(" ")) } else { Inked::spaces(n) };
-    let ruled = |mut out: Inked| { let rest = width.saturating_sub(out.width() + 2); if rule && rest > 0 { out = out.add(Inked::of(format!(" {}", "─".repeat(rest)), Ink::Muted)); } out.cut(width) };
-    let Some(p) = pilot else { return (ruled(Inked::plain(" ").add(caret).add(named)), None) };
-    let next_all = p.next_words();
-    let left = Inked::plain(" ").add(p.mark).add(Inked::plain(" ")).add(caret).add(named);
-    let join = |c: &[(&str, Inked)]| { let mut out = Inked::new(); for (n, (_, x)) in c.iter().enumerate() { if n > 0 { out = out.add(Inked::spaces(2)); } out = out.add(x.clone()); } out };
-    let mut cols = p.cols;
-    while !cols.is_empty() && left.width() + 2 + join(&cols).width() > width { cols.remove(0); }
-    let right = join(&cols);
-    let first = if right.is_empty() { ruled(left) } else { let gap = width.saturating_sub(left.width() + right.width()); left.add(drawn_rule(gap)).add(right).cut(width) };
-    let next = if cols.iter().any(|(k, _)| *k == "next") { Inked::new() } else { next_all };
-    (first, Some(Inked::spaces(5).add(p.under).add(next).cut(width)))
-}
-impl Shown {
-    /// When it next wakes, said at the end of its line where its column had no room: ` · next in 40m`.
-    fn next_words(&self) -> Inked { self.cols.iter().find(|(k, _)| *k == "next").map(|(_, x)| Inked::of(format!(" · {}", x.text()), Ink::Soft)).unwrap_or_default() }
-}
-/// Does this row take a line more for its autopilot (the list counts its room so)? While it is on, always.
-pub fn extra(s: &State, r: &Row) -> usize {
-    let Row::Head { id, .. } = r else { return 0 };
-    usize::from(of_head(s, id).map(|c| view(s, &c).b("on")).unwrap_or(false))
+/// A heading, drawn: the marks' column (`row`; None, a heading with no coordinator, starts at its caret), its caret, its
+/// name and what follows it, and its time at the right edge; the name gives way first, the mark and the time stay. A
+/// coordinator on autopilot has its status line under it, starting under its name, cut at the edge.
+pub fn placed(caret: Inked, named: Inked, row: Option<Shown>, width: usize) -> Vec<Inked> {
+    let (mark, time, under) = match row { Some(r) => (Some(r.mark), r.time, r.under), None => (None, Inked::new(), Inked::new()) };
+    let left = match mark { Some(m) => Inked::plain(" ").add(m).add(Inked::plain(" ")), None => Inked::plain(" ") }.add(caret);
+    let lead = left.width();
+    let room = width.saturating_sub(lead + if time.is_empty() { 0 } else { time.width() + 2 });
+    let named = if named.width() > room { named.cut(room) } else { named };
+    let gap = width.saturating_sub(lead + named.width() + time.width());
+    let first = left.add(named).add(Inked::spaces(if time.is_empty() { 0 } else { gap })).add(time).cut(width);
+    if under.is_empty() { return vec![first]; }
+    vec![first, Inked::spaces(lead).add(under).cut(width)]
 }

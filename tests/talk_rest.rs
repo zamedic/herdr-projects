@@ -23,7 +23,7 @@ fn claude_rows(prompt: &str, said: &[&str]) -> Vec<Value> {
     }
     v
 }
-fn boxed(s: &mut common::board::Board) -> Vec<String> { s.chat(120).boxed }
+fn boxed(s: &mut common::board::Board) -> Vec<String> { crate::board_chat::chat(s, 120).boxed }
 fn with(r: &Obj, more: Value) -> Obj { let mut o = r.clone(); for (k, v) in more.as_object().unwrap() { o.insert(k.clone(), v.clone()); } o }
 
 #[test]
@@ -47,9 +47,9 @@ fn under_review_the_web_board_another_machine_and_a_dialog_say_what_the_reviewer
     assert_eq!(boxed(&mut s)[..2].to_vec(), vec!["Reviewer:", "One fault left: the header is cut."]);
     // the web board gets the same parts, and its text box says what a message does now
     let side = sw::webui::model::side::side_of(&mut s.s, &s.theme.clone());
-    assert_eq!(side.at("chat").arr("parts").last().unwrap(), &json!({ "by": "Reviewer", "text": "One fault left: the header is cut.", "mine": false, "tone": "", "raw": false }));
+    assert_eq!(side.at("chat").arr("parts").last().unwrap(), &json!({ "by": "Reviewer", "text": "One fault left: the header is cut.", "mine": false, "tone": "", "raw": false, "sent": false }));
     assert_eq!(side.at("chat").at("raw"), &json!(false));
-    assert_eq!(side.at("send").s("place"), "Send message to Agent: the review goes on unless the code changes");
+    assert_eq!(side.at("send").s("place"), "Send message to the agent: the review goes on unless the code changes");
     // another machine's task: what that machine sent; one on an older version sends none, and that is said
     let r = s.s.current().unwrap().clone();
     let sent = sw::remote::remote_list().at("tasks").as_array().unwrap().iter().find(|x| x.s("id") == id).unwrap().at("snap").at("talk").clone();
@@ -65,7 +65,7 @@ fn under_review_the_web_board_another_machine_and_a_dialog_say_what_the_reviewer
     // a dialog on the reviewer's screen is said in words, with the way to it
     let asks = talk(&with(&r, json!({ "stage": "reviewneeds", "state": "blocked" })));
     assert!(asks.dialog);
-    assert_eq!(asks.parts.last().unwrap().text, format!("The reviewer shows a dialog on its screen that waits for your answer. {} opens the task's space: the reviewer is in its tab \"Reviewer #1\".", key_name("enter")));
+    assert_eq!(asks.parts.last().unwrap().text, format!("The reviewer shows a dialog on its screen that waits for your answer. {} opens the task's space: the reviewer is in its tab \"Reviewer #1\".", key_name("open")));
 }
 
 #[test]
@@ -83,7 +83,7 @@ fn a_working_agents_chat_is_its_words_never_its_tool_calls_or_its_screen_where_i
     assert!(t.b("session"), "{t:?}");
     jsonl(&claude_dir.join("projects").join("x").join(format!("{}.jsonl", t.s("session"))), &claude_rows("Work board task proj/1, role: agent.\n\nMake f", &["I am writing **f** now:\n- the file\n- its test"]));
     s.load();
-    let b = boxed(&mut s); assert_eq!(b[..b.len() - 2].to_vec(), vec!["Agent:", "I am writing f now:", "- the file", "- its test"]);
+    let b = boxed(&mut s); assert_eq!(b[..b.len() - 2].to_vec(), vec!["I am writing f now:", "- the file", "- its test"]);
     assert!(!regex::Regex::new(r"Bash\(|3 passed|Transmuting|bypass permissions|tokens\)").unwrap().is_match(&s.text()), "{}", s.text());
     s.press(&["alt+k"]); assert_eq!(boxed(&mut s)[..2].to_vec(), vec!["Board:", "Work board task proj/1, role: agent."]);
     // a dialog only its screen has: said plainly, with the key that goes there; not the screen
@@ -91,7 +91,7 @@ fn a_working_agents_chat_is_its_words_never_its_tool_calls_or_its_screen_where_i
     let mut live = r.at("live").clone(); if !live.is_object() { live = json!({}); } live["status"] = json!("blocked");
     let asks = talk(&with(&r, json!({ "live": live })));
     assert!(asks.dialog);
-    assert_eq!(asks.parts.last().unwrap().text, format!("The agent shows a dialog on its screen that waits for your answer: {} opens it.", key_name("enter")));
+    assert_eq!(asks.parts.last().unwrap().text, format!("The agent shows a dialog on its screen that waits for your answer: {} opens it.", key_name("open")));
     assert_eq!(asks.parts[asks.parts.len() - 2].by, "Agent");
     // a program whose conversation cannot be read: the words on its screen, named as that
     let other = talk(&with(&r, json!({ "host": "vm-a", "snap": { "talk": { "who": "agent", "kind": "other", "readable": false, "list": [] }, "screen": "────────\nReading the code\n⣿⣿⣿⣿" } })));

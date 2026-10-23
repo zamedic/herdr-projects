@@ -3,7 +3,7 @@
 //! only one fits and shorter words for a window too narrow for the usual ones (and, for a draft, shortest ones yet: the
 //! shorter words still name who gets it).
 use super::chat::{chat_up, Who};
-use super::textbox::{draft_task, far_coordinator};
+use super::textbox::draft_task;
 use crate::board::keys::{hint, name, pair, K};
 use crate::board::state::{Mode, State};
 use crate::board::update::actions::{attempt_now, choosing};
@@ -41,6 +41,7 @@ pub fn hints(s: &State, r: Option<&Obj>, who: Option<&Who>) -> (Vec<Hint>, Optio
         return (vec![Hint { key: String::new(), words: w, stays: false, short, shortest, ..Default::default() }], chat_key);
     }
     if s.menu.is_some() { return (vec![plain(arrows, "pick a key"), plain(enter, "press it"), plain(esc, "close the menu")], chat_key); }
+    if !crate::board::update::skills::shown(s).is_empty() { return (vec![plain(arrows, "pick a skill"), plain(format!("{tab} {enter}"), "put it in the box"), plain(esc, "close the list")], chat_key); }
     if let Some(e) = &s.editing {
         return (if !e.typing.is_empty() { vec![plain(enter, "save this value"), plain(esc, "leave it as it is")] } else { vec![plain(pair(K::Up), "move"), plain(enter, "change"), plain(name(K::PutBack), "put back"), plain(esc, if e.whose.mine() { "back to the list" } else { "back to the task" })] }, chat_key);
     }
@@ -50,14 +51,13 @@ pub fn hints(s: &State, r: Option<&Obj>, who: Option<&Who>) -> (Vec<Hint>, Optio
     // words are locked to it while the list may be scrolled to others, and the box's edge names no one.
     let head = crate::board::update::coords::talking(s);
     if !s.value().is_empty() {
-        if let Some(c) = &head { return (vec![Hint { key: enter, words: format!("send to the {}", c.name), stays: false, short: "send".into(), shortest: "send".into(), lit: c.name.clone(), tint: c.ink() }, line, put], chat_key); }
+        if let Some(c) = &head { return (vec![Hint { key: enter, words: format!("send to {}", c.name), stays: false, short: "send".into(), shortest: "send".into(), lit: c.name.clone(), tint: c.ink() }, line, put], chat_key); }
         if let (true, Some(r)) = (s.reply, r) {
             let (fresh, t) = (!r.b("host") && ["todo", "progress"].contains(&r.s("stage")), draft_task(s, r));
-            let (w, short) = if crate::board::update::actions::has_agent(r) { (format!("send to {t}'s agent"), format!("send to {t}")) } else if fresh { (format!("send, and start an agent on {t}"), format!("send to {t}")) } else if s.data.can_dispatch || r.b("host") { (format!("send to the Coordinator, about {t}"), "send to the Coordinator".into()) } else { (format!("add to {t}'s description"), format!("add to {t}")) };
+            let (w, short) = if crate::board::update::actions::has_agent(r) { (format!("send to {t}'s agent"), format!("send to {t}")) } else if fresh { (format!("send, and start an agent on {t}"), format!("send to {t}")) } else if let Some(c) = crate::board::update::top::top(s) { (format!("send to {}, about {t}", c.name), format!("send to {}", c.name)) } else { (format!("add to {t}'s description"), format!("add to {t}")) };
             return (vec![Hint { key: enter, words: w, stays: false, short, shortest: "send".into(), ..Default::default() }, line, put], chat_key);
         }
-        let (coordinator, short) = far_coordinator(s).map(|m| (format!("send to the Coordinator on {m}"), format!("send to {m}"))).unwrap_or_else(|| ("send to the Coordinator".into(), "send to the Coordinator".into()));
-        if s.talks_to_coord() { return (vec![Hint { key: enter, words: coordinator, stays: false, short, shortest: "send".into(), ..Default::default() }, line, put], chat_key); }
+        if let Some(c) = crate::board::update::top::top(s) { return (vec![Hint { key: enter, words: format!("send to {}", c.name), stays: false, short: "send".into(), shortest: "send".into(), ..Default::default() }, line, put], chat_key); }
         return (vec![plain(enter.clone(), "add it as a task"), plain(tab, "add it and put an agent on it"), line, put], chat_key);
     }
     // The popup closes on its last esc: it says so, last on the line (not while esc would hide the chat's message).
@@ -68,22 +68,31 @@ pub fn hints(s: &State, r: Option<&Obj>, who: Option<&Who>) -> (Vec<Hint>, Optio
     if let Some(a) = s.auto() { return (auto_hints(s, a, &back, &more), chat_key); }
     if let Some(w) = crate::board::update::heads::says(s) {
         // A machine's or a repo's heading: space talks to its coordinator, and back.
-        let talk = if head.is_some() { Some(Hint { stays: true, ..hk(K::Talk, "back to the Coordinator") }) } else { crate::board::update::coords::of_head(s, &s.sel).map(|c| Hint { lit: c.name.clone(), tint: c.ink(), ..hk(K::Talk, &format!("talk to the {}", c.name)) }) };
-        let mut v: Vec<Hint> = (!w.is_empty()).then(|| hk(K::Enter, &w)).into_iter().collect();
-        if crate::board::update::archive_done::counts(s).map(|c| c.0 > 0).unwrap_or(false) { v.push(hk(K::Archive, "archive its done tasks")); }
+        // Space on a row talks to its coordinator; on the one it talks to, back to the top row's (none on the top row).
+        let here = crate::board::update::coords::of_head(s, &s.sel);
+        let talk = if super::chat_title::coordinator(s) == here { (s.sel != crate::board::update::top::top_id(s)).then(|| Hint { stays: true, ..hk(K::Talk, &back_words(s)) }) } else { here.filter(|c| head.as_ref() != Some(c)).map(|c| Hint { lit: c.name.clone(), ..hk(K::Talk, &format!("talk to {}", c.name)) }) };
+        // Enter folds and unfolds it; the open key goes into its coordinator, where it has one.
+        let fold = crate::board::update::heads::fold_says(s);
+        let mut v: Vec<Hint> = (!fold.is_empty()).then(|| hk(K::Enter, &fold)).into_iter().collect();
+        if !w.is_empty() { v.push(hk(K::Open, &w)); }
         // A coordinator's row names both of autopilot's keys (update/pilot.rs).
-        if crate::board::update::pilot::selected(s).is_some() { v.push(hk(K::Delegate, "autopilot on")); v.push(hk(K::Stop, "off")); }
+        // A coordinator's row: started and stopped as an agent is, and its autopilot's own key.
+        if let Some(c) = crate::board::update::pilot::selected(s) { v.push(hk(K::Delegate, "start")); v.push(hk(K::Stop, "stop")); v.push(hk(K::Pilot, if crate::board::update::pilot::on(s, &c) { "autopilot off" } else { "autopilot" })); }
         v.extend(back); v.extend(key);
         match talk { Some(t) if t.stays => { v.push(t) } Some(t) => { v.insert(0, t); v.push(more) } None => v.push(more) }
+        // A project's row: the whole project to the archive; in the archive, back (update/archive_project.rs). It gives
+        // way first: past the line's six it is the web board's button alone, and the ? menu's line.
+        let archive = crate::board::update::archive_project::says(s);
+        if !archive.is_empty() { let at = if v.len() < 6 { v.len() - 1 } else { v.len() }; v.insert(at, hk(K::Archive, archive)); }
         return (v, chat_key);
     }
     let Some(r) = r else { let mut v = back; v.extend(key); v.push(more); return (v, chat_key); };
-    let tail: Vec<Hint> = leave.clone().unwrap_or_else(|| vec![if s.reply { Hint { stays: true, ..hk(K::Talk, "back to the Coordinator") } } else { more.clone() }]);
+    let tail: Vec<Hint> = leave.clone().unwrap_or_else(|| vec![if s.reply { Hint { stays: true, ..hk(K::Talk, &back_words(s)) } } else { more.clone() }]);
     let mid: Vec<Hint> = if leave.is_some() { vec![] } else { back };
     let failure = failure_for(r);
     let rv = crate::store::reviews::current_review(r).cloned();
     let sendable = rv.as_ref().map(|x| crate::gate::sendable(x)).unwrap_or(false);
-    let open = h(hint(K::Enter, None));
+    let open = h(hint(K::Open, None));
     let fix = h(hint(K::SendBack, None));
     let stop = h(hint(K::Stop, None));
     let agent = h(hint(K::Delegate, None));
@@ -94,8 +103,8 @@ pub fn hints(s: &State, r: Option<&Obj>, who: Option<&Who>) -> (Vec<Hint>, Optio
     let at = if choosing(s, r) { attempt_now(s, r) } else { None };
     let opt = |b: bool, x: Hint| if b { Some(x) } else { None };
     let main: Vec<Option<Hint>> = if r.b("archivedAt") { vec![Some(h(hint(K::Archive, None))), Some(hk(K::Stop, "remove this task"))] }
-        else if let (Some(c), true) = (&at, st("pick")) { let l = c.s("letter"); vec![Some(Hint { short: format!("keep {l}"), ..hk(K::Yes, &format!("keep attempt {l}")) }), Some(h(hint(K::NextAttempt, None))), Some(hk(K::Enter, &format!("open attempt {l}'s agent")))] }
-        else if let Some(c) = &at { vec![Some(hk(K::Enter, &format!("open attempt {}'s agent", c.s("letter")))), Some(h(hint(K::NextAttempt, None))), Some(reply.clone()), Some(stop.clone())] }
+        else if let (Some(c), true) = (&at, st("pick")) { let l = c.s("letter"); vec![Some(Hint { short: format!("keep {l}"), ..hk(K::Yes, &format!("keep attempt {l}")) }), Some(h(hint(K::NextAttempt, None))), Some(hk(K::Open, &format!("open attempt {l}'s agent")))] }
+        else if let Some(c) = &at { vec![Some(hk(K::Open, &format!("open attempt {}'s agent", c.s("letter")))), Some(h(hint(K::NextAttempt, None))), Some(reply.clone()), Some(stop.clone())] }
         else if in_review(r) { vec![Some(Hint { short: "merge this task".into(), ..hk(K::Yes, "approve and merge this task") }), opt(sendable, hk(K::SendBack, "send the review to this task's agent")), Some(reply.clone())] }
         else if failed_review(r) { vec![opt(sendable, hk(K::SendBack, "send the review to this task's agent")), Some(Hint { short: "merge anyway".into(), ..hk(K::Yes, "merge this task anyway") }), Some(reply.clone())] }
         else if st("approval") && r.b("syncBlocked") { vec![Some(reply.clone()), Some(open.clone())] }
@@ -112,6 +121,7 @@ pub fn hints(s: &State, r: Option<&Obj>, who: Option<&Who>) -> (Vec<Hint>, Optio
         else if agent_on && r.s("state") == "blocked" && st("asks") && r.s("kind") != "auth" && crate::chat_only::is_chat(r) { vec![Some(hk(K::Talk, "answer this task's agent")), Some(Hint { short: "end the chat".into(), ..hk(K::Yes, "end the chat, as it is") }), Some(open.clone())] }
         else if agent_on && r.s("state") == "blocked" { vec![Some(if r.s("kind") == "question" { hk(K::Talk, "answer this task's agent") } else { reply.clone() }), Some(open.clone())] }
         else if stuck_finishing(r) { vec![Some(hk(K::Yes, "finish with what its agent said last")), Some(open.clone()), Some(reply.clone())] }
+        else if let Some((what, _)) = crate::board::update::link::of(r).filter(|_| st("done")) { vec![Some(hk(K::OpenLink, &format!("open its {what}"))), Some(reply.clone()), opt(agent_on, open.clone())] }
         else if agent_on && r.s("state") == "working" { vec![Some(open.clone()), Some(reply.clone()), Some(stop.clone())] }
         else if agent_on { vec![Some(open.clone()), Some(reply.clone())] }
         else if r.s("state") == "working" { vec![Some(agent.clone()), Some(hk(K::Stop, "put it back in to do"))] }
@@ -149,3 +159,5 @@ fn auto_hints(s: &State, a: &Obj, back: &[Hint], more: &Hint) -> Vec<Hint> {
     v.push(Hint { key: name(K::Back), words: "back to the list".into(), stays: true, ..Default::default() });
     v
 }
+/// Space again: back to the top row's coordinator (All machines', or the one machine's).
+fn back_words(s: &State) -> String { crate::board::update::top::top(s).map(|t| format!("back to {}", t.name)).unwrap_or_else(|| "back".into()) }

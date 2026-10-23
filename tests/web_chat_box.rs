@@ -61,7 +61,7 @@ fn who_gets_the_words_is_said_while_empty_too_and_a_second_enter_while_the_first
     assert!(CHAT.contains("if (!box.value.trim() && !files.count()) to = null;"));
     assert!(CHAT.contains("send.disabled = !typing || busy || files.busy();") && CHAT.contains("also.disabled = busy;") && CHAT.contains("also.hidden = !typing || !l.delegate;"));
     // who: always said, quietly while empty, locked once words are typed; the buttons say what they do
-    assert!(CHAT.contains("chip.hidden = !moved;") && CHAT.contains("send.title = cap(l.enter) || \"Send message\";") && CHAT.contains("also.title = l.delegate ? `${cap(l.delegate)} (Tab)` : \"\";"));
+    assert!(CHAT.contains("chip.hidden = !moved;") && CHAT.contains("send.title = cap(l.enter) || \"Send message\";") && CHAT.contains("also.title = l.delegate ? `${cap(l.delegate)} (Ctrl+S)` : \"\";"));
     assert!(CHAT.contains("box.placeholder = cap(snap.send.place || \"\");"));
     // a device that can only watch types nothing
     assert!(CHAT.contains(r#"box.disabled = snap.role !== "drive";"#) && CHAT.contains(r#"if (snap.role !== "drive") box.placeholder = "This device can only watch";"#));

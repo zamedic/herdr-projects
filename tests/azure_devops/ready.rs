@@ -52,7 +52,7 @@ fn reviewed_work_whose_pipeline_runs_is_ready_to_approve_with_the_review_and_the
     let json = listed(&id).1;
     assert_eq!((json.s("state"), json.s("kind"), json.s("stands")), ("blocked", "permission", "ready to approve"), "{json}");
     let text = panel(&w, &id);
-    assert!(text.contains("1 ready") && text.contains("◆ ready to approve") && !text.contains("Needs you") && !text.contains("asks for your OK"), "{text}");
+    assert!(text.contains("Ready 1") && text.contains("◆ ready to approve") && !text.contains("Needs you") && !text.contains("asks for your OK"), "{text}");
     assert!(text.contains("Policies: reports running"), "{text}");
 }
 

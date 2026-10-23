@@ -32,22 +32,27 @@ fn a_long_message_wraps_inside_the_box_and_takes_the_rows_it_needs_never_the_tex
     let mut s = open(&w.root, 30); s.s.side = false;
     let said: Vec<String> = (1..=20).map(|i| format!("Line {i} of **what** it said, long enough to wrap in a narrow window.")).collect();
     coordinator_says(&mut s, &said.join("\n"));
+    let me = sw::board::update::heads::label(&s.s, "");
     for width in [44, 80, 200] {
-        let c = s.chat(width);
+        let c = crate::board_chat::chat(&mut s, width);
         let body = &c.boxed[..c.boxed.len() - 2];
         assert!(has(&c.boxed[c.boxed.len() - 2], &format!(r"^ +({} )?more ↓$", regex::escape(&key_name("chatScrollDown")))), "{:?}", c.boxed);
-        assert_eq!(c.boxed.last().unwrap(), "❯ Send message to Coordinator");
-        // With its box it takes two thirds of the 30 rows: 16 lines of it. It starts at its beginning (here under the
-        // line that names who said it: the Rust chat always names the Coordinator).
-        assert_eq!(body.len(), 16, "sixteen lines of it at {width} columns: {body:?}");
-        assert_eq!(body[0], "Coordinator:"); assert!(body[1].starts_with("Line 1 of what it said"), "{body:?}");
+        assert!(c.boxed.last().unwrap().starts_with("❯ Send message to "), "{:?}", c.boxed);
+        // With its box it takes two thirds of the 30 rows: 14 lines of it (the box's empty rows take two), under the
+        // box's edge, which names who it is. It starts at its beginning, under no label: the edge says whose it is.
+        assert_eq!(body.len(), 14, "fourteen lines of it at {width} columns: {body:?}");
+        assert!(c.lines.iter().any(|l| l.starts_with("╭─") && l.contains(&format!(" {me} "))), "{:?}", c.lines);
+        assert!(body[0].starts_with("Line 1 of what it said"), "{body:?}");
         assert!(!body.join("\n").contains("**"));
-        assert!(c.lines.iter().filter(|l| has(l, r"Task number \d+")).count() >= 2, "the list keeps rows (under the main Coordinator's row)");
+        let rows = c.lines.iter().filter(|l| has(l, r"Task number \d+")).count();
+        assert!(rows >= 1, "the list keeps rows (under the top row and the filter row): {:?}", c.lines);
     }
     // A window too short for all of it: the message gives up its lines first; who you talk to and the line you type on stay.
     s.rows = 10;
-    let c = s.chat(80);
-    assert_eq!(c.lines.len(), 10); assert!(has(&c.who, r"^[ ▌]. Coordinator"), "{}", c.who); assert_eq!(c.boxed.last().unwrap(), "❯ Send message to Coordinator"); assert!(c.boxed.len() <= 5);
+    let c = crate::board_chat::chat(&mut s, 80);
+    // folded: the box's edge names who (its ladder), and the line you type on stays
+    assert_eq!(c.lines.len(), 10); assert_eq!(c.boxed, vec!["❯ Send message to the machine coordinator".to_string()], "{:?}", c.lines);
+    assert!(c.lines.iter().any(|l| l.starts_with("╭─") && l.contains(&sw::shown::words::clean(&sw::remote::check::hostname()))), "{:?}", c.lines);
     // The colours: an agent's message is in the brighter of the two greys (it has to be read), your own in the text colour.
     use sw::board::view::chat::{chat_message, Who};
     use sw::board::view::talk::Part;
@@ -64,12 +69,13 @@ fn a_very_narrow_window_keeps_the_box_whole_with_the_message_in_it() {
     let w = coord_world();
     w.script(json!({ "coordinator": [{ "said": "Six tasks are in progress and nothing waits on you." }] }));
     let mut s = open(&w.root, 34);
-    // Nothing said yet: the placeholder is cut with …, inside the box.
-    for width in [27, 24, 16] { let c = s.chat(width); assert!(c.framed, "at {width}"); assert_eq!(c.boxed.len(), 1); assert!(has(&c.boxed[0], "^❯ S.*…$"), "at {width}: {:?}", c.boxed); }
-    assert_eq!(s.chat(40).boxed, vec!["❯ Send message to Coordinator"]);
+    // Nothing said yet: the box's edge says who it is, and the placeholder is cut with …, inside the box.
+    for width in [27, 24, 16] { let c = crate::board_chat::chat(&mut s, width); assert!(c.framed, "at {width}"); assert_eq!(c.boxed.len(), 1); assert!(has(&c.boxed[0], "^❯ A.*…$"), "at {width}: {:?}", c.boxed); }
+    let me = sw::board::update::heads::label(&s.s, "");
+    assert!(crate::board_chat::chat(&mut s, 80).boxed[0] == "❯ Ask it something, e.g. \"what's left to do here?\"" && crate::board_chat::chat(&mut s, 80).lines.iter().any(|l| l.starts_with("╭─") && l.contains(&format!(" {me} "))), "never ran: {:?}", crate::board_chat::chat(&mut s, 80).lines);
     s.typed("hi"); s.press(&["enter"]); drain(); s.load();
     for width in [60, 24, 23, 20, 19, 12, 8] {
-        let c = s.chat(width);
+        let c = crate::board_chat::chat(&mut s, width);
         let body = &c.boxed[..c.boxed.len() - 2];
         assert!(c.framed, "the box is there at {width} columns"); assert_eq!(c.lines.len(), 34);
         assert!(c.lines.iter().all(|l| sw::text::width(l) <= width), "nothing is wider than {width} columns");
@@ -79,7 +85,7 @@ fn a_very_narrow_window_keeps_the_box_whole_with_the_message_in_it() {
     }
     // Typed words wrap inside it too.
     s.typed("a reply that is longer than the box is wide");
-    for width in [24, 12] { let c = s.chat(width); assert!(c.framed && c.lines.iter().all(|l| sw::text::width(l) <= width)); assert!(has(&c.boxed.join(" "), "❯ a +reply"), "{:?}", c.boxed); }
+    for width in [24, 12] { let c = crate::board_chat::chat(&mut s, width); assert!(c.framed && c.lines.iter().all(|l| sw::text::width(l) <= width)); assert!(has(&c.boxed.join(" "), "❯ a +reply"), "{:?}", c.boxed); }
 }
 
 /// A key as crossterm reads what a terminal sends (esc and a letter, or the kitty protocol's CSI u: the same event).
@@ -109,7 +115,7 @@ fn ctrl_does_something_alt_only_shows_or_hides_and_no_old_key_is_left() {
     // The keys that are gone do nothing at all: not their old action, not a new one, and nothing is typed.
     use KeyCode::*;
     let (a, c, sh, n) = (KeyModifiers::ALT, KeyModifiers::CONTROL, KeyModifiers::SHIFT, KeyModifiers::NONE);
-    for (code, mods) in [(Char('v'), a), (Char('h'), a), (Char('r'), a), (Char('n'), a), (Delete, n), (Char('s'), c), (Char('d'), c), (Char('o'), c), (Char('t'), c), (Char('g'), c), (Right, n), (Up, a), (Down, a), (Up, c), (Down, c), (Home, n), (End, n), (Char('w'), a), (Up, sh), (Down, sh), (Right, sh), (Up, c | sh), (Down, c | sh), (Up, a | sh), (Down, a | sh)] {
+    for (code, mods) in [(Char('v'), a), (Char('h'), a), (Char('r'), a), (Char('n'), a), (Delete, n), (Char('d'), c), (Char('o'), c), (Char('t'), c), (Char('g'), c), (Right, n), (Up, a), (Down, a), (Up, c), (Down, c), (Home, n), (End, n), (Char('w'), a), (Up, sh), (Down, sh), (Right, sh), (Up, c | sh), (Down, c | sh), (Up, a | sh), (Down, a | sh)] {
         let k = format!("{code:?} {mods:?}");
         key(&mut s, code, mods);
         assert_eq!(tasks(), first, "{k}"); assert_eq!(shown(&s), start, "{k}"); assert!(s.s.ask.is_none() && s.s.menu.is_none(), "{k}"); assert_eq!(s.s.value(), "", "{k}"); assert_eq!(s.s.sel, id, "{k}"); assert!(!s.closed, "{k}");

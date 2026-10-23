@@ -19,7 +19,7 @@ const TASK_ONLY: [K; 4] = [K::Yes, K::SendBack, K::Archive, K::Pin];
 const OPEN_SAME: [K; 6] = [K::Menu, K::Close, K::Undo, K::ChatMessage, K::ChatScrollUp, K::ChatScrollDown];
 /// A plain key's line in the ? menu, where it does something else on an automation's row than on a task's.
 pub fn auto_help(k: K) -> Option<&'static str> {
-    match k { K::Enter => Some("send what is typed; with nothing typed, open this automation (on a firing in it: go to the task it made)"), K::Talk => Some("turn this automation on or off"), K::Delegate => Some("fire this automation now"), _ => None }
+    match k { K::Enter => Some("send what is typed; with nothing typed, open this automation (on a firing in it: go to the task it made)"), K::Talk => Some("turn this automation on or off"), _ => None }
 }
 pub fn firings(a: &Obj) -> Vec<Value> { a.at("shown").arr("firings").to_vec() }
 pub fn can_set(a: &Obj) -> bool { !a.b("host") || !a.at("shown").arr("settings").is_empty() }
@@ -82,6 +82,7 @@ pub fn key(s: &mut State, p: &Press, fx: &mut Vec<Effect>) -> bool {
 /// The ? menu on an automation's row: the keys that do something there, in the words of what they do there.
 pub fn menu_items(s: &State, a: &Obj) -> Vec<Item> {
     let words = |k: K| -> Option<String> { match k {
+        K::Delegate => Some("fire this automation now".into()),
         K::Stop => Some("remove this automation (it asks first)".into()),
         K::Settings => Some(if can_set(a) { "this automation's settings: see and change each one".into() } else { String::new() }),
         K::Panel => Some(if s.auto_open { "back to the list".into() } else { "show the whole automation, full screen".into() }),
@@ -92,5 +93,5 @@ pub fn menu_items(s: &State, a: &Obj) -> Vec<Item> {
 }
 pub fn run_menu(s: &mut State, k: K, fx: &mut Vec<Effect>) {
     let Some(a) = s.auto().cloned() else { return };
-    match k { K::Stop => remove(s, &a), K::Settings => settings(s, &a), K::Panel => fold(s), K::Side => super::actions::toggle_side(s, fx), _ => super::keys::run(s, k, None, fx) }
+    match k { K::Delegate => fire(s, &a, fx), K::Stop => remove(s, &a), K::Settings => settings(s, &a), K::Panel => fold(s), K::Side => super::actions::toggle_side(s, fx), _ => super::keys::run(s, k, None, fx) }
 }

@@ -1,4 +1,4 @@
-//! Whose turn a coordinator's command belongs to, found as a `Tab` turn is (coordinator/requests.rs: tab_turn): the
+//! Whose turn a coordinator's command belongs to, found as a start-key turn is (coordinator/requests.rs: tab_turn): the
 //! caller's pane is that coordinator's, it is still in the turn the last message started (the same run, at rest when
 //! that message went in, `completion_seq` unchanged), and that message was an autopilot wake. A message of yours typed
 //! in after it ends the autopilot turn: what follows is on your word. A turn a task's agent or reviewer started (its

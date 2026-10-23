@@ -27,8 +27,22 @@ fn far_world() -> (World, Far) {
     std::fs::write(sw::store::files::data_dir().join("view.json"), json!({ "cwd": w.root_str() }).to_string()).unwrap();
     (w, far)
 }
-/// The page shows vm-a's board by itself: this machine, every machine, then vm-a.
-fn show_vm_a() -> Value { call("press", json!({ "id": "scope" })); far::answered("t", 1); call("press", json!({ "id": "scope" })); far::answered("t", 1); call("board", json!({})) }
+/// The page shows vm-a's board by itself: round from this machine, every machine first, then each machine (vm-a among them).
+fn show_vm_a() -> Value {
+    for _ in 0..4 { call("press", json!({ "id": "scope" })); far::answered("t", 1); if call("board", json!({})).at("flags").s("scope") == "vm-a" { break; } }
+    call("board", json!({}))
+}
+/// Round the scope key back to vm-a until its new answer is in (a poll already on its way may bring the one before).
+fn round_until(ok: impl Fn(&Value) -> bool) -> Value {
+    let mut c = Value::Null;
+    for _ in 0..5 {
+        for _ in 0..3 { call("press", json!({ "id": "scope" })); }
+        far::answered("t", 1);
+        c = call("board", json!({})).at("chat").clone();
+        if ok(&c) { break; }
+    }
+    c
+}
 fn looks(talk: &[(bool, &str)]) -> Look { Look { state: "idle".into(), readable: true, talk: talk.iter().map(|(you, t)| Said { you: *you, text: t.to_string(), at: 0 }).collect(), ..Default::default() } }
 
 #[test]
@@ -44,25 +58,25 @@ fn another_machines_coordinator_sends_its_words_with_its_tasks_and_the_chat_show
     assert!(coord_far::read(&json!({ "off": true })).is_none() && coord_far::read(&Value::Null).is_none());
 
     let said = coord_far::sent(&looks(&[(true, "What is going on?"), (false, "Two are working. Nothing waits for you.")]), true);
-    far.answers("vm-a", "list", &json!({ "host": "vm-a", "version": "0.9.0", "tasks": [], "coordinator": said }));
+    // vm-a's board shown alone: its top row is vm-a, and the chat talks to vm-a's coordinator.
+    far.answers("vm-a", "list", &json!({ "host": "vm-a", "version": "0.9.0", "tasks": [], "coordinator": said, "coordinators": { "machine": said } }));
     let s = show_vm_a();
     let c = s.at("chat");
-    assert_eq!((c.s("name"), c.s("coord"), c.at("toAgent"), c.at("open")), ("Coordinator on vm-a", "Coordinator on vm-a", &json!(false), &json!(true)));
+    assert_eq!((c.s("name"), c.at("toAgent"), c.at("open")), ("vm-a's coordinator", &json!(false), &json!(true)), "{c}");
+    assert!(c.s("coord").contains("vm-a"), "{c}");
     assert_eq!(c.s("status"), "idle");
     let parts: Vec<(String, String)> = c.arr("parts").iter().map(|p| (p.t("by"), p.t("text"))).collect();
-    assert_eq!(parts, vec![("You".into(), "What is going on?".into()), ("Coordinator".into(), "Two are working. Nothing waits for you.".into())]);
+    assert_eq!(parts, vec![("You".into(), "What is going on?".into()), ("vm-a's coordinator".into(), "Two are working. Nothing waits for you.".into())]);
 
     // A machine on an older version sends nothing of its Coordinator: said, never an empty chat that looks quiet.
     far.answers("vm-a", "list", &json!({ "host": "vm-a", "version": "0.8.0", "tasks": [] }));
-    call("press", json!({ "id": "scope" })); call("press", json!({ "id": "scope" })); call("press", json!({ "id": "scope" })); far::answered("t", 1);
-    let c = call("board", json!({})).at("chat").clone();
-    assert_eq!(c.s("coord"), "Coordinator on vm-a");
-    assert_eq!(c.arr("parts").last().unwrap().s("text"), "vm-a runs an older herdr-projects, which does not send what its Coordinator says: update it there.");
+    let c = round_until(|c| c.arr("parts").last().is_some_and(|p| p.s("text").contains("older herdr-projects")));
+    assert!(c.s("coord").contains("vm-a"), "{c}");
+    assert!(c.arr("parts").last().is_some_and(|p| p.s("text").starts_with("vm-a runs an older herdr-projects") && p.s("text").ends_with("update it there.")), "{c}");
     // One with no Coordinator adds what you type as a task, and the chat says so.
     far.answers("vm-a", "list", &json!({ "host": "vm-a", "version": "0.9.0", "tasks": [], "coordinator": { "off": true } }));
-    call("press", json!({ "id": "scope" })); call("press", json!({ "id": "scope" })); call("press", json!({ "id": "scope" })); far::answered("t", 1);
-    let c = call("board", json!({})).at("chat").clone();
-    assert_eq!((c.s("status"), c.arr("parts").len()), ("no Coordinator there: what you type is added as a task", 0));
+    let c = round_until(|c| c.s("status").starts_with("no coordinator there"));
+    assert_eq!((c.s("status"), c.arr("parts").len()), ("no coordinator there: coordinator.agent is none on that machine", 0));
 }
 
 #[test]
@@ -91,17 +105,24 @@ fn the_page_gets_the_two_you_can_talk_to_and_hiding_the_message_is_the_boards_ow
 fn the_chats_bar_has_a_switch_hide_full_screen_and_a_grip_and_the_boards_own_conversation_reads_as_the_web_uis() {
     // who you talk to: the web UI's segmented switch of the two (the Coordinator first), the one you talk to pressed; a
     // tap on the other presses the board's own key, as space does on the terminal board; with nobody else, only a name
-    assert!(TALK.contains("const [is, other] = c.toAgent ? [agent, coord] : [coord, onTask || onHead ? agent : \"\"];") && TALK.contains("`${c.task} agent`"));
-    assert!(CHAT.contains(r#"onclick: () => { if (!pressed && !busy && now) onPress("talk"); }"#) && CHAT.contains(r#"who.className = "sw-who segmented";"#));
-    assert!(CHAT.contains("const [coord, agent] = c.toAgent ? [other, is] : [is, other];") && CHAT.contains(r#"if (!other) { who.className = "sw-who is-one";"#));
-    // each with how it stands: the chat's own mark on the one you talk to, a task's row's mark on its agent
-    assert!(CHAT.contains("const agentMark = row ? markEl(row.mark, row.color, row.markDim) : null;"));
+    // (the top row's coordinator first, the selected row's agent second; no main Coordinator)
+    assert!(!TALK.contains("talkNames") && CHAT.contains("const other = c.toAgent ? c.top : c.row;"));
+    assert!(CHAT.contains(r#"onclick: () => { if (!pressed && !busy && now) onPress("talk"); }"#) && CHAT.contains(r#"who.replaceChildren(...[h("span.sw-who-switch.segmented", top, agent), kind].filter(Boolean));"#));
+    assert!(CHAT.contains("const [top, agent] = c.toAgent ? [choice(c.top, false, null), choice(lit, true, mark)] : [choice(lit, true, mark), choice(c.row, false, rowMark)];") && CHAT.contains(r#"if (!other || other === lit) { who.className = "sw-who is-one";"#));
+    // the one you talk to by its name in the status colour of where it stands, then the kind of agent dimmed
+    assert!(CHAT.contains("const t = c.title, lit = t?.steps?.length ? t.steps[t.steps.length - 1] : c.name, edge = t?.edge || \"text\";") && CHAT.contains("h(\"span.sw-who-kind\", `· ${t.kind}`)"));
+    assert!(CSS.contains(".sw-who-pick.is-on:is(.sw-e-red, .sw-e-yellow, .sw-e-green, .sw-e-review, .sw-e-queue, .sw-e-teal, .sw-e-check, .sw-e-todo, .sw-e-auto, .sw-e-accent) .sw-who-name { color: var(--sw-e); }"));
+    assert!(CSS.contains(".sw-e-check { --sw-e: var(--sw-check); }"), "a check's name in the check's colour, as the frame");
+    // with no kind (the archive: no title) nothing is written in its place: replaceChildren would write "null"
+    assert!(CHAT.contains("kind].filter(Boolean)") && !CHAT.contains("), kind);"));
+    // each with how it stands: the chat's own mark on the one you talk to, a task's row's (or a coordinator's row's) mark on the other
+    assert!(CHAT.contains("const rowMark = row ? markEl(row.mark, row.color, row.markDim) : head ? markEl(head.t, head.c, !!head.d) : null;"));
     // how they stand in words beside it; on a narrow bar a word the mark already says steps aside
-    assert!(CHAT.contains(r#"state.classList.toggle("is-plain", PLAIN.test(c.status || "") && !c.progress);"#) && CSS.contains(".sw-who-status.is-plain { display: none; }"));
+    assert!(CHAT.contains(r#"state.classList.toggle("is-plain", PLAIN.test(c.status || "") && !c.progress);"#) && CSS.contains(".sw-who-status.is-plain .sw-status-words { display: none; }"));
     // Hide and Show press alt+c's key, so the board remembers which
     assert!(CHAT.contains(r#"const hide = h("button.icon-button.sw-hide", { type: "button", onclick: () => onPress("chatMessage") });"#) && CHAT.contains(r#"hide.title = open ? "Hide the chat" : "Show the chat";"#));
     // full screen: the board's header and list step aside; its own arrow, Esc or the board's arrow go back
-    assert!(CSS.contains(".sw-board:is(.sw-chat-full, .sw-web-typing) > :is(.sw-head, .sw-body, .sw-chips, .sw-find-row, .sw-note) { display: none; }"));
+    assert!(CSS.contains(".sw-board:is(.sw-chat-full, .sw-web-typing) > :is(.sw-head, .sw-shows, .sw-body, .sw-chips, .sw-find-row, .sw-note) { display: none; }"));
     assert!(CHAT.contains("hide.hidden = full;\n") && !CHAT.contains("grow2.hidden") && CHAT.contains(r#"grow2.replaceChildren(icon(full ? "shrink" : "expand"));"#) && CHAT.contains(r#"grow2.title = full ? "Exit full screen" : "Full screen";"#));
     assert!(!CHAT.contains("sw-chat-back") && BOARD_JS.contains("if (chat.full()) return chat.full(false);") && BOARD_JS.contains("chat.full() ? chat.full(false) : closing?.()"));
     // a step in the browser's history: a phone's back gesture leaves it; left by its button or Esc, the step is taken back
@@ -123,8 +144,8 @@ fn the_chats_bar_has_a_switch_hide_full_screen_and_a_grip_and_the_boards_own_con
     // its parts are no automation's mark: that one is `.sw-turn`, a 0.72em ring
     assert!(BOARD_CSS.contains(".sw-turn { display: inline-block; position: relative; width: 0.72em;") && !SAID.contains("div.sw-turn\""));
     // tab sends, and puts an agent on what it adds, where that applies (no Coordinator); otherwise it moves on as tab does
-    assert!(COMPOSE.contains(r#"if (e.key === "Tab" && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey && !e.isComposing && box.value.trim() && onTab()) e.preventDefault();"#));
-    assert!(CHAT.contains("onTab: () => { if (also.hidden || busy) return false; go(true); return true; }"));
+    assert!(COMPOSE.contains(r#"if (e.key.toLowerCase() === "s" && e.ctrlKey && !e.altKey && !e.metaKey && !e.isComposing && box.value.trim() && onStart()) e.preventDefault();"#));
+    assert!(CHAT.contains("onStart: () => { if (also.hidden || busy) return false; go(true); return true; }"));
     // a thumb's size on touch
     assert!(regex::Regex::new(r"@media \(pointer: coarse\) \{ \.sw-chatbar \.icon-button \{ min-width: var\(--touch-target, 40px\); min-height: var\(--touch-target").unwrap().is_match(CSS));
 }

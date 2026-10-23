@@ -8,6 +8,9 @@ use serde_json::json;
 use sw::board::keys::key_name;
 use sw::json::*;
 
+/// tell where herdr cannot be found: queued, not delivered, and said so.
+mod undelivered;
+
 pub fn coord_world() -> World {
     let w = world_with(Opts { repo: true, settings: json!({ "coordinator.agent": "claude", "review.when": "never" }), ..Default::default() });
     let home = w.base.join("home-coord");
@@ -25,20 +28,23 @@ fn the_box_talks_to_one_long_lived_coordinator_started_once_with_nothing_held_ba
     let socket = sw::herdr::cli::current_socket();
     assert!(sw::coordinator::who::ready(&socket));
     w.script(json!({ "coordinator": [{ "said": "Added proj/1." }, { "said": "Delegated proj/1." }] }));
-    let mut s = open(&w.root, 34);
+    let mut s = open(&w.root, 34); s.s.side = false;
     let t = s.text();
-    assert!(has(&t, r"\n *\n[ ▌]· Coordinator  not started: your first message starts it *\n╭─[^\n]*╮\n│ ❯ Send message to Coordinator +│\n╰─+╯\n[ ▌] \? all keys *$"), "{t}");
-    assert!(!has(&t, "claude|default model|default effort|last message|new task|reply to"));
+    // It opens on the top row, this machine's, whose coordinator the chat talks to: its box's edge names it, and the box
+    // invites a first message.
+    let (host, top) = (regex::escape(&sw::shown::words::clean(&sw::remote::check::hostname())), regex::escape(&crate::board_chat::top_name()));
+    assert!(has(&t, &format!(r#"\n╭─  {host}  · Machine coordinator ─*╮\n(?:│ +│\n)?│ +❯ Ask it something, e\.g\. "what's left to do here\?" +│\n(?:│ +│\n)?╰─+╯\n[^\n]*\? all keys *$"#)), "{t}");
+    assert!(!has(&t, "claude|default model|default effort|last message|new task|reply to"), "{t}");
     s.typed("build a login page");
-    assert!(s.text().contains("│ ❯ build a login page") && s.text().contains("enter send to the Coordinator · shift+enter new line · esc put away"), "{}", s.text());
+    assert!(s.text().contains("❯ build a login page") && s.text().contains(&format!("enter send to {} · shift+enter new line · esc put away", crate::board_chat::top_name())), "{}", s.text());
     // tab is no second way to send: the Coordinator decides itself what to start, so the words stay where they are
-    s.press(&["tab"]);
+    s.press(&["ctrl+s"]);
     assert!(s.s.value() == "build a login page" && sw::coordinator::state::get(&socket).unwrap_or_default().arr("queue").is_empty());
     s.press(&["enter"]);
     assert_eq!(s.s.value(), "", "{}", s.s.msg);
     assert_eq!(sw::coordinator::state::get(&socket).unwrap_or_default().arr("queue").len(), 1);
     s.load();
-    assert!(has(&s.text(), r"\n *\n[ ▌]◐ Coordinator  starting · 1 message waits to be sent *\n╭─[^\n]*╮\n│ You: +│\n│ build a login page +│\n│ +│\n│ ❯ Send message to Coordinator +│\n╰─+╯\n"), "{}", s.text());
+    assert!(has(&s.text(), &format!(r"\n╭─  {host}  · Machine coordinator ─*╮\n(?:│ +│\n)?│ +build a login page +│\n│ +│\n│ +❯ Send message to the machine coordinator +│\n(?:│ +│\n)?╰─+╯\n")), "{}", s.text());
     drain();
     let st = w.state();
     assert_eq!(st.arr("workspaces").iter().map(|x| x.t("label")).collect::<Vec<_>>(), vec!["~"]);
@@ -58,7 +64,7 @@ fn the_box_talks_to_one_long_lived_coordinator_started_once_with_nothing_held_ba
     s.load();
     for width in [160, 120, 60] {
         let txt = s.screen(width).join("\n");
-        assert!(has(&txt, &format!(r"\n *\n[ ▌]○ Coordinator  idle *\n╭─[^\n]*╮\n│ Coordinator: +│\n│ Added proj/1\. +│\n│ +│\n│ ❯ Send message to Coordinator +│\n╰─+╯\n[ ▌] [^\n]*{} hide the latest message · \? all keys *$", regex::escape(&key_name("chatMessage")))), "at {width}: {txt}");
+        assert!(has(&txt, &format!(r"\n╭─  {host}  [^\n]*╮\n(?:│ +│\n)?│ +Added proj/1\. +│\n│ +│\n│ +❯ Send message to the machine coordinator +│\n(?:│ +│\n)?╰─+╯\n[ ▌] [^\n]*{} \? all keys *$", if width >= 120 { format!("{} hide the latest message ·", regex::escape(&key_name("chatMessage"))) } else { String::new() })), "at {width}: {txt}");
         assert!(s.screen(width).iter().all(|l| sw::text::width(l) <= width));
     }
     assert_eq!(sw::coordinator::look::look(&socket).unseen, "", "a reply you can see counts as seen");
@@ -77,8 +83,8 @@ fn the_box_talks_to_one_long_lived_coordinator_started_once_with_nothing_held_ba
     assert_eq!(p.len(), 2);
     assert_eq!(text(&p[1]), "and start it");
     assert!(has(&sw::coordinator::requests::where_text(&socket), r#"2 messages[^\n]*\n- "build a login page"[^\n]*It was sent with enter[^\n]*\n- "and start it"[^\n]*It was sent with enter[^\n]*$"#));
-    // Hidden, a new reply is said on the chat's one line; shown again, it is there.
+    // Hidden, the new reply waits; shown again, it is there.
     s.load(); assert!(!s.s.chat_open);
-    assert!(!s.text().contains("Delegated proj/1.") && has(&s.text(), r"\n[ ▌]○ Coordinator  new reply *\n"), "{}", s.text());
+    assert!(!s.text().contains("Delegated proj/1."), "{}", s.text());
     s.press(&["alt+c"]); assert!(s.text().contains("Delegated proj/1."));
 }

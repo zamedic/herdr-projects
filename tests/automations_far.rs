@@ -90,30 +90,30 @@ fn other_machines_automations_are_in_the_list_with_their_machine_named_and_are_c
     let _ = update(&mut s.s, Event::Machines(sw::remote::machines()));
     poll(&mut s, Some(json!([far_auto(json!({}))])));
     assert!(!t(&mut s, 120).contains("Theirs nightly"), "this machine only: its own");
-    s.press(&["alt+m"]); assert_eq!(s.s.scope, "*");
+    { let mut fx = vec![]; sw::board::update::remotes::set_scope(&mut s.s, "*".into(), &mut fx); s.run(fx); } // every machine (alt+m's ring passes the others first)
     let text = t(&mut s, 140);
-    like(&text, r"\n ⟳ on {4}Look for old dependencies {2}every 2h +next in {2}2h\n"); // its repo is the one the board shows: not said
+    like(&text, r"\n     ⟳ on {4}Look for old dependencies {2}every 2h +next in {2}2h\n"); // its repo is the one the board shows: not said
     // in the part of the machine that has it, a group of its own after that machine's tasks; its machine is its heading, not on its row
-    like(&text, r"\n ▾ vm-b ─+\n ▾ to do\n ○ #7 +Theirs nightly +0s ago\n\n ▾ automations\n ⟳ on {4}Theirs nightly {2}every 5m · far +○ #7 next in {2}4m\n"); // another repo: said; and the task it made there
+    like(&text, r"\n     ▾ vm-b\n     ▾ to do\n     ○ #7 +Theirs nightly +0s ago\n     ▾ automations\n     ⟳ on {4}Theirs nightly {2}every 5m · far +○ #7 next in {2}4m\n"); // another repo: said; and the task it made there
     assert!(!text.contains("on vm-b"), "{text}");
     // folded, the machine's one line says what it holds, and its automations go with it
     let head = sw::board::update::heads::machine_id("vm-b");
-    s.s.sel = head.clone(); s.load(); s.press(&["enter"]);
+    s.s.sel = head.clone(); s.load(); s.press(&["left"]);
     let folded = t(&mut s, 140);
-    like(&folded, r"\n▌▸ vm-b {2}1 task, 1 automation ─+\n"); assert!(!folded.contains("Theirs nightly"), "{folded}");
-    s.press(&["enter"]); assert!(t(&mut s, 140).contains("Theirs nightly  every 5m"));
+    like(&folded, r"\n▌    ▸ vm-b {2}1 task, 1 automation\n"); assert!(!folded.contains("Theirs nightly"), "{folded}");
+    s.press(&["right"]); assert!(t(&mut s, 140).contains("Theirs nightly  every 5m"));
     s.s.sel = "vm-b:auto:0a1b2c3d".into(); s.load(); assert_eq!(s.s.auto().unwrap().s("host"), "vm-b");
-    assert_eq!(s.screen(140).last().unwrap(), "  enter open this automation · space turn this automation off · tab fire it now · ctrl+x remove it · ctrl+e its settings · ? all keys");
-    // each key is sent to that machine, and its answer is what the board says
-    s.press(&["space"]); assert_eq!(asked(&f), json!({ "action": "auto-turn", "id": "0a1b2c3d", "on": false })); assert!(t(&mut s, 120).contains("done there")); assert_eq!(automation(mine.s("id")).unwrap().at("on"), &json!(true));
-    s.press(&["tab"]); assert_eq!(asked(&f), json!({ "action": "auto-run", "id": "0a1b2c3d" }));
+    assert_eq!(s.screen(140).last().unwrap(), "  enter open this automation · space turn this automation off · ctrl+s fire it now · ctrl+x remove it · ctrl+e its settings · ? all keys");
+    // each key is sent to that machine; what it answers when it worked is not said under the chat
+    s.press(&["space"]); assert_eq!(asked(&f), json!({ "action": "auto-turn", "id": "0a1b2c3d", "on": false })); assert!(!t(&mut s, 120).contains("done there")); assert_eq!(automation(mine.s("id")).unwrap().at("on"), &json!(true));
+    s.press(&["ctrl+s"]); assert_eq!(asked(&f), json!({ "action": "auto-run", "id": "0a1b2c3d" }));
     // ctrl+e opens its settings, the page a task has: the rows are that machine's, and each change is made there
     s.press(&["ctrl+e"]);
     let e = s.s.editing.clone().unwrap(); assert_eq!((e.id.as_str(), e.whose == sw::board::state::Whose::Auto, s.s.auto_open), ("vm-b:auto:0a1b2c3d", true, true));
     let text = t(&mut s, 120);
     like(&text, r"^ Settings {2}Theirs nightly"); like(&text, r"\n▌› {3}Agent's program +claude +worker\.agent\n"); like(&text, r"\n {3}\* Merged by +itself +merge\.by\n"); like(&text, r"\n {5}Review when +always +review\.when\n");
     assert_eq!(s.screen(120).last().unwrap(), "  ↑ ↓ move · enter change · ctrl+u put back · esc back to the task");
-    s.press(&["down", "enter"]); assert_eq!(asked(&f), json!({ "action": "auto-set", "id": "0a1b2c3d", "name": "review.when", "value": "repos" })); assert!(t(&mut s, 120).contains("done there"));
+    s.press(&["down", "enter"]); assert_eq!(asked(&f), json!({ "action": "auto-set", "id": "0a1b2c3d", "name": "review.when", "value": "repos" })); assert!(!t(&mut s, 120).contains("done there"));
     s.press(&["down", "ctrl+u"]); assert_eq!(asked(&f), json!({ "action": "auto-set", "id": "0a1b2c3d", "name": "merge.by", "value": null }));
     s.press(&["down", "enter"]); s.typed("20m"); s.press(&["enter"]); assert_eq!(asked(&f), json!({ "action": "auto-set", "id": "0a1b2c3d", "name": "check.timeout", "value": "20m" }));
     assert_eq!(sw::store::tasks::list(Default::default()).len(), 1, "typed words never became a task");
@@ -130,12 +130,12 @@ fn other_machines_automations_are_in_the_list_with_their_machine_named_and_are_c
     like(&regex::Regex::new(r"\s+").unwrap().replace_all(&text, " "), &format!("{} changes them", regex::escape(&key_name("settings")))); assert!(!text.contains("Changed on vm-b"));
     s.press(&["down", "enter"]); assert_eq!(s.s.sel, "vm-b:far/7"); assert!(!s.s.auto_open);
     // that machine's own board: only its automations, no machine on the row (the header names it)
-    s.press(&["alt+m"]); assert_eq!(s.s.scope, "vm-b");
+    while s.s.scope != "vm-b" { s.press(&["alt+m"]); }
     let text = t(&mut s, 140);
-    like(&text, r"\n[ ▌]⟳ on {2}Theirs nightly {2}every 5m · far +○ #7 next in {2}4m\n"); assert!(!text.contains("Look for old dependencies"));
+    like(&text, r"\n[ ▌]  ⟳ on {2}Theirs nightly {2}every 5m · far +○ #7 next in {2}4m\n"); assert!(!text.contains("Look for old dependencies"));
     // off there, with why; and removing asks first, naming the machine
     poll(&mut s, Some(json!([far_auto(json!({ "on": false, "nextAt": 0, "offWhy": "it fired 30 times in an hour" }))])));
-    like(&t(&mut s, 140), r"\n[ ▌]⟳ off Theirs nightly {2}every 5m · far +○ #7 +fired {2}2h ago\n[ ▌] {6}it fired 30 times in an hour\n");
+    like(&t(&mut s, 140), r"\n[ ▌]  ⟳ off Theirs nightly {2}every 5m · far +○ #7 +fired {2}2h ago\n[ ▌] {8}it fired 30 times in an hour\n");
     s.s.sel = "vm-b:auto:0a1b2c3d".into(); s.load(); s.press(&["ctrl+x"]); assert!(t(&mut s, 120).contains("? Remove the automation \"Theirs nightly\" on vm-b? The tasks it made stay."));
     s.press(&["y"]); assert_eq!(asked(&f), json!({ "action": "auto-remove", "id": "0a1b2c3d" }));
     poll(&mut s, Some(json!([]))); let text = t(&mut s, 140); assert!(!text.contains("automations") && !text.contains('⟳'), "{text}");

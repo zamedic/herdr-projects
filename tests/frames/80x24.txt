@@ -1,55 +1,55 @@
 == the list
- herdr-projects  proj · 5 need you · 1 ready · 9 working · 2 to do · 1 done
- ✗ #13    Max length for task titles                                          1m
-          Conflict with main
- ✗ #14    Max length for task titles                                          1m
-          Stopped without a summary
+ herdr-projects  proj
+ All 18   Coords 0   Needs 5   Working 9   Ready 1   To do 2   Done 1   Autos 0
+   ! #12    Max length for task titles                        R#1 PR#123456   1m
+            The pull request's checks fail
+   ✗ #13    Max length for task titles                                        1m
+            Conflict with main
+   ✗ #14    Max length for task titles                                        1m
+            Stopped without a summary
+   ▾ ready to approve
+   ◆ #11    Max length for task titles                        R#1 PR#60       1m
+            Pass
+   ▾ working
+   ◐ #2     Max length for task titles                                        1m
+            Drafting
+   ◇ #4     Max length for task titles                                        1m
+            Starting
+▌  ◐ #5     Max length for task titles                                        1m
+▌           Found the cause; now checking every caller of the resize handler fo…
+ ↓ 9 more · ↑ 2 more
 
- ▾ ready to approve
- ◆ #11    Max length for task titles                          R#1 PR#60       1m
-          Pass
-
- ▾ working
- ◐ #2     Max length for task titles                                          1m
-          Drafting
- ◇ #4     Max length for task titles                                          1m
-          Starting
-▌◐ #5     Max length for task titles                                          1m
-▌         Found the cause; now checking every caller of the resize handler for …
- ↓ 9 more · ↑ 3 more
-
- + New task  added word for word
 ────────────────────────────────────────────────────────────────────────────────
 ❯ Add a task
 ────────────────────────────────────────────────────────────────────────────────
-  enter open this task's agent · space talk to the agent · ? all keys
+  alt+o open this task's agent · space talk to the agent · ? all keys
 == the task beside it
- herdr-projects  proj · 5 need you · 1 ready · 9 working · 2 to do · 1 done
- ✗ #14    Max length for task titles                                          1m
-          Stopped without a summary
+ herdr-projects  proj
+ All 18   Coords 0   Needs 5   Working 9   Ready 1   To do 2   Done 1   Autos 0
+   ✗ #13    Max length for task titles                                        1m
+            Conflict with main
+   ✗ #14    Max length for task titles                                        1m
+            Stopped without a summary
+   ▾ ready to approve
+   ◆ #11    Max length for task titles                        R#1 PR#60       1m
+            Pass
+   ▾ working
+   ◐ #2     Max length for task titles                                        1m
+            Drafting
+   ◇ #4     Max length for task titles                                        1m
+            Starting
+▌  ◐ #5     Max length for task titles                                        1m
+▌           Found the cause; now checking every caller of the resize handler fo…
 
- ▾ ready to approve
- ◆ #11    Max length for task titles                          R#1 PR#60       1m
-          Pass
+ ↓ 9 more · ↑ 3 more
 
- ▾ working
- ◐ #2     Max length for task titles                                          1m
-          Drafting
- ◇ #4     Max length for task titles                                          1m
-          Starting
-▌◐ #5     Max length for task titles                                          1m
-▌         Found the cause; now checking every caller of the resize handler for …
-
- ↓ 9 more · ↑ 4 more
-
- + New task  added word for word
 ────────────────────────────────────────────────────────────────────────────────
 ❯ Add a task
 ────────────────────────────────────────────────────────────────────────────────
   Side panel on. alt+p hides it.
-  enter open this task's agent · space talk to the agent · ? all keys
+  alt+o open this task's agent · space talk to the agent · ? all keys
 == the whole task
- Task details  #5 "Max length for task titles"                 lines 1–16 of 23
+ Task details  #5 "Max length for task titles"                 lines 1–17 of 23
 ────────────────────────────────────────────────────────────────────────────────
 
  #5 Max length for task titles
@@ -68,58 +68,58 @@
  a/very/long/path/that/has/no/space/in/it/at/all/src/board/view/row-wrap.js and
  more words after it.
 
- + New task  added word for word
+
 ────────────────────────────────────────────────────────────────────────────────
 ❯ Add a task
 ────────────────────────────────────────────────────────────────────────────────
-  enter open this task's agent · ↑↓ scroll the task · esc back to the list
+  alt+o open this task's agent · ↑↓ scroll the task · esc back to the list
 == the ? menu
  Menu  for #5 "Max length for task titles"
  plain keys
    ↑ ↓          move between tasks and headings
+   ← →          fold the heading; on a task's row, go to its heading
    pgup pgdn    a page of tasks up or down (in the whole task: a page of its
                 text)
-   enter        send what is typed; else open this task's agent, or fold a
-                heading
-   space        flip who you talk to: the Coordinator, or this task's agent
-   tab          put an agent on this task
+   tab          the next filter on top: all, coordinators, needs you, working,
+                ready, to do, done, automations
+   enter        send what is typed; else fold or unfold a heading
+   space        talk to this row's agent, and back to the top row's coordinator
    esc          back, one step at a time (as a popup, the board closes on the
                 last one)
    ?            this menu
    y  n         answer a question: y yes, n or esc no (enter never confirms)
+   /            typed first: pick a skill of whom you talk to
 
  ctrl: does something
    ctrl+l       yes: approve the merge, say yes, retry, take it as it is
-   ctrl+r       send it back: tell the agent to fix it, or to continue
- ↓ 43 more
+ ↓ 47 more
 
- + New task  added word for word
 ────────────────────────────────────────────────────────────────────────────────
 ❯ Add a task
 ────────────────────────────────────────────────────────────────────────────────
   ↑↓ pick a key · enter press it · esc close the menu
 == a draft
- herdr-projects  proj · 5 need you · 1 ready · 9 working · 2 to do · 1 done
- ✗ #13    Max length for task titles                                          1m
-          Conflict with main
- ✗ #14    Max length for task titles                                          1m
-          Stopped without a summary
+ herdr-projects  proj
+ All 18   Coords 0   Needs 5   Working 9   Ready 1   To do 2   Done 1   Autos 0
+   ! #12    Max length for task titles                        R#1 PR#123456   1m
+            The pull request's checks fail
+   ✗ #13    Max length for task titles                                        1m
+            Conflict with main
+   ✗ #14    Max length for task titles                                        1m
+            Stopped without a summary
+   ▾ ready to approve
+   ◆ #11    Max length for task titles                        R#1 PR#60       1m
+            Pass
+   ▾ working
+   ◐ #2     Max length for task titles                                        1m
+            Drafting
+   ◇ #4     Max length for task titles                                        1m
+            Starting
+▌  ◐ #5     Max length for task titles                                        1m
+▌           Found the cause; now checking every caller of the resize handler fo…
+ ↓ 9 more · ↑ 2 more
 
- ▾ ready to approve
- ◆ #11    Max length for task titles                          R#1 PR#60       1m
-          Pass
-
- ▾ working
- ◐ #2     Max length for task titles                                          1m
-          Drafting
- ◇ #4     Max length for task titles                                          1m
-          Starting
-▌◐ #5     Max length for task titles                                          1m
-▌         Found the cause; now checking every caller of the resize handler for …
- ↓ 9 more · ↑ 3 more
-
- + New task  added word for word
 ────────────────────────────────────────────────────────────────────────────────
 ❯ Hello 日本 🚀
 ────────────────────────────────────────────────────────────────────────────────
-  enter add it as a task · tab add it and put an agent on it · esc put away
+  enter add it as a task · ctrl+s add it and put an agent on it · esc put away

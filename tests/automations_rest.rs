@@ -49,7 +49,7 @@ fn on_an_automations_row_a_tasks_keys_change_no_task_removing_asks_and_find_and_
     s.load();
     s.press(&["down", "down"]); assert_eq!(s.s.sel, format!("auto:{}", a.s("id")));
     // off, tab only says so: no task is made
-    s.press(&["space", "tab"]); assert_eq!(tasks().len(), 1); s.press(&["space"]);
+    s.press(&["space", "ctrl+s"]); assert_eq!(tasks().len(), 1); s.press(&["space"]);
     // a key that acts on a task does nothing here: no task is archived or pinned
     s.press(&["down"]);
     s.press(&["ctrl+a", "ctrl+p", "ctrl+l", "ctrl+r"]);

@@ -30,8 +30,7 @@ fn the_board_never_shows_a_machine_that_did_not_answer_as_an_empty_one() {
     answer(&mut s, "vm-a", Err(bash_why("vm-a")));
     answer(&mut s, "vm-b", list(json!([theirs(1)])));
     answer(&mut s, "vm-c", Ok(json!({ "ok": false, "msg": "Unknown request list" })));
-    s.press(&["alt+m"]); // every machine: the others' tasks show, and each one that could not be read has its line
-    assert_eq!(s.s.scope, "*");
+    while s.s.scope != "*" { s.press(&["alt+m"]); } // every machine: the others' tasks show, and each one that could not be read has its line
     let text = s.text();
     assert!(text.contains("Mine") && text.contains("Theirs 1"), "{text}");
     let all = flat(&s.screen(120));
@@ -39,7 +38,7 @@ fn the_board_never_shows_a_machine_that_did_not_answer_as_an_empty_one() {
     assert!(all.contains("vm-c: its tasks cannot be read: it answered, but not with its tasks."), "{all}");
     assert!(!text.contains("must be on the PATH"));
     // that machine's own board: no "nothing here yet", the reason whole
-    s.press(&["alt+m"]); assert_eq!(s.s.scope, "vm-a");
+    while s.s.scope != "vm-a" { s.press(&["alt+m"]); } // round, after every machine: each by itself
     let all = flat(&s.screen(120));
     assert!(!all.contains("Nothing here yet") && all.contains("vm-a: its tasks cannot be read: herdr-projects is not found there."), "{all}");
     assert!(all.contains("must be on the PATH that a login shell gets") && all.contains(r#"ln -s "$(command -v herdr-projects)""#), "{all}");
@@ -83,7 +82,7 @@ fn the_board_never_shows_a_machine_that_did_not_answer_as_an_empty_one() {
     s.load();
     assert!(s.text().contains("vm-c: asking for its tasks…") && !s.text().contains("Nothing here yet"), "{}", s.text());
     // an action on a task of a machine that stopped answering says why, once
-    s.press(&["alt+m", "alt+m"]);
+    while s.s.scope != "*" { s.press(&["alt+m"]); }
     answer(&mut s, "vm-b", list(json!([theirs(1)])));
     s.s.sel = "vm-b:far/1".into(); s.load();
     far.ends("vm-b", "do", "", "ssh: connect to host vm-b port 22: Connection refused\n", 255);
@@ -109,7 +108,9 @@ fn the_web_board_says_the_same_an_unread_machine_is_a_line_with_its_reason_behin
     assert_eq!(unread.iter().map(|u| (u.t("machine"), u.t("line"), u.b("asking"))).collect::<Vec<_>>(), vec![("vm-a".to_string(), "vm-a: it does not let the board in.".to_string(), false)]);
     let d = unread[0].arr("detail").iter().map(text).collect::<Vec<_>>().join("\n");
     assert!(has(&d, r"(?s)^vm-a refused the login.*batch mode.*ssh-copy-id [^ ]*vm-a.*\n\nWhat came back:\n {2}me@vm-a: Permission denied"), "{d}");
-    let s = web_as(&w, "t", "press", json!({ "id": "scope", "role": "watch" })).unwrap();
+    // round, after every machine each by itself: this machine, then vm-a
+    let mut s = web_as(&w, "t", "press", json!({ "id": "scope", "role": "watch" })).unwrap();
+    if s.at("flags").s("scope").is_empty() { s = web_as(&w, "t", "press", json!({ "id": "scope", "role": "watch" })).unwrap(); }
     assert_eq!(s.at("flags").s("scope"), "vm-a");
     assert_eq!((s.at("list").s("empty"), s.at("list").arr("unread").len(), s.at("list").arr("groups").len()), ("", 1, 0));
     assert!(!has(s.at("msg").s("text"), "cannot be read|let the board in"));

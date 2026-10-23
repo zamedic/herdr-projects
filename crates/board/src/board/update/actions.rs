@@ -36,7 +36,7 @@ pub fn has_agent(r: &Obj) -> bool { is_agent(r) && (r.b("host") || crate::flow::
 
 // ---- enter and tab ---------------------------------------------------------------------------------------------------
 pub fn enter(s: &mut State, text: &str, r: Option<&Obj>, fx: &mut Vec<Effect>) {
-    if text.is_empty() { if let Some(r) = r { open_agent(s, r, fx); } return; } // with nothing typed, enter opens the selected task's agent
+    if text.is_empty() { return; } // with nothing typed, enter does nothing on a task's row: the open key goes into its agent
     if let Some(t) = super::coords::talking(s) { let w = s.value(); return super::coords::send(s, &t, w.trim(), fx); }
     // Who gets it is who the chat names: the selected task's agent after space, the Coordinator otherwise.
     if s.reply { if let Some(r) = r {
@@ -207,9 +207,9 @@ pub fn undo(s: &mut State, fx: &mut Vec<Effect>) {
             let title = s.items.iter().find(|r| r.s("id") == d.to).map(|r| r.t("title")).or_else(|| super::coords::of_head(s, &d.to).map(|c| c.name)).unwrap_or_else(|| d.to.clone());
             let nm = format!("\"{}\"", crate::text::cut(&clean(&title), 40));
             s.draft_away = Some(d.clone());
-            return s.flash(if d.to.is_empty() { format!("Those words were for the Coordinator. {} goes back to it, then {} brings them back.", key_name("talk"), key_name("undo")) }
+            return s.flash(if d.to.is_empty() { format!("Those words were for {}. {} goes back to it, then {} brings them back.", super::top::top(s).map(|t| t.name).unwrap_or_else(|| "the top row's coordinator".into()), key_name("talk"), key_name("undo")) }
                 else if !now.is_empty() { format!("Those words were for {nm}. Move to it, then {} brings them back.", key_name("undo")) }
-                else if super::heads::is_head(&d.to) { format!("Those words were for the {}. Select its heading and press {}, then {} brings them back.", clean(&title), key_name("talk"), key_name("undo")) }
+                else if super::heads::is_head(&d.to) { format!("Those words were for {}. Select its row and press {}, then {} brings them back.", clean(&title), key_name("talk"), key_name("undo")) }
                 else { format!("Those words were for the agent on {nm}. Select it and press {}, then {} brings them back.", key_name("talk"), key_name("undo")) }, Ink::Yellow);
         }
         s.draft_away = None;
