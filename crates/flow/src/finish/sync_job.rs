@@ -19,6 +19,8 @@ pub fn sync_job(id: &str, force: bool) {
         let tree = sync::tree_of(&t);
         if !sync::resyncable(&t) || tree.is_empty() || (sync::known_target(&t, &mut Default::default()) == t.s("syncSeen") && !t.b("syncBlocked") && !force) { return Ok(()); }
         g.expect(&t, &[]);
+        // Its pull request completed on Azure DevOps meanwhile: merged, and main is not merged into it (land/completed.rs).
+        if crate::land::completed::finish(id, &mut g, &t)? { return Ok(()); }
         let tp = Path::new(&tree);
         // Only a task at rest is merged into. One that is not, or whose main cannot be read, is held as "behind main".
         let mut why = String::new();

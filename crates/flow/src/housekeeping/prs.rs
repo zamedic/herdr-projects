@@ -16,6 +16,8 @@ fn needs_login(t: &Task) -> bool { t.at("failure").b("auth") || (t.s("stage") ==
 
 pub fn poll_prs() {
     super::fetch_mains();
+    // Merged on Azure DevOps, yet back with you after a land step ran on it again: it waits for its pipeline again.
+    crate::land::completed::recover(&list(ListOpts::default()));
     // Merged on Azure DevOps, waiting for the base branch's pipeline: looked at on the same cadence.
     crate::land::main_pipeline::pass(&list(ListOpts::default()));
     for first in list(ListOpts::default()) {

@@ -18,8 +18,10 @@ fn asked_at(t: &Task) -> i64 { [t.i("runnerAsked"), t.i("at"), t.i("queuedAt"), 
 /// The stage a start is asked for again in, and when.
 pub fn ask_start(t: &mut Task) { t.put("stage", "starting"); t.put("runnerAsked", now()); }
 /// A runner's stage with no runner is waiting for nothing, but a merge that waits its turn in the line (finish/line.rs)
-/// or for GitHub's automatic merge (finish/auto_merge.rs): those have none until their turn.
+/// or for GitHub's automatic merge (finish/auto_merge.rs): those have none until their turn. Nor does merged work that
+/// waits for its main pipeline on Azure DevOps (land/main_pipeline.rs), looked at by the pull requests' poll.
 fn lost(t: &Task) -> bool {
+    if crate::land::main_pipeline::waits(t) { return false; } // merged, waiting for its main pipeline: no runner to wait for
     if t.at("runner").is_object() { return !marker_alive(t.at("runner")); }
     RUNNER_STAGES.contains(&t.s("stage")) && !t.b("autoMerge") && !crate::finish::line::in_line(t) && now() - asked_at(t) > GRACE_MS
 }

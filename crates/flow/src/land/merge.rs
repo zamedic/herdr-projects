@@ -108,6 +108,8 @@ fn behind(g: &mut Guard, r: &sync::Synced) -> Res<()> {
 /// Runs with the task in stage "merging" and this runner's guard standing on it.
 pub fn land_core(id: &str, g: &mut Guard) -> Res<()> {
     if called_off(g) { return Ok(()); } // `merge.by` went back to `you` before this merge of the board's own began
+    // Completed on Azure DevOps already: merged, before main is merged into its branch or its head compared (completed.rs).
+    if super::completed::finish(id, g, &g.check()?)? { return Ok(()); }
     // One merge at a time in a repo: behind another task this one waits, and catches up with main when its turn comes.
     if !take_turn(id, g)? { return Ok(()); }
     let mut t = g.check()?;

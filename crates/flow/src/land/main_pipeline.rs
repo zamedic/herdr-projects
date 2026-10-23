@@ -20,6 +20,8 @@ use crate::store::tasks::{get, update_wait, Change, Task};
 const START_GRACE_MS: i64 = 10 * 60000;
 /// Does the gate hold this task's merge? Its repo is at Azure DevOps and `merge.pipeline` is not `none`.
 pub fn applies(t: &Obj) -> bool { setting_text("merge.pipeline", Some(t)) != "none" && azure::host(&folder_of(t.s("id"))).is_some() }
+/// Merged, waiting for its main pipeline: no runner stands in its stage "merging" meanwhile (hook/lost.rs).
+pub fn waits(t: &Obj) -> bool { t.b("pipelineWait") && t.s("stage") == "merging" }
 /// The task merged at `commit` into `base`: it waits for the pipeline. `mode`/`head`: how its clean-up deletes its
 /// branch, and the commit that merged, for when it is done.
 pub fn arm(t: &mut Obj, commit: &str, base: &str, mode: &str, head: &str) {

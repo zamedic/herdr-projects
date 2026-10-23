@@ -7,6 +7,7 @@ mod draft;
 mod flow;
 mod gate;
 mod held;
+mod merged;
 mod ready;
 mod vote;
 
