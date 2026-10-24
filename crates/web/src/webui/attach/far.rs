@@ -1,26 +1,28 @@
 //! A file attached in the web board's chat box for another machine's agent or coordinator, put where that one reads
 //! it, on its machine. First the herdr web UI's own way, as its chat box sends a file for a pane on another of its PCs
 //! (`POST /api/machines/<PC>/pane/image`, checked on herdr-web-ui 0.4.8): that PC keeps it beside the pane, in
-//! `<its folder>/.herdr-web-ui/` (which a task's worktree leaves out of git, delegate/worktree.rs). The front door asks
-//! with the caller's own headers, so the web UI lets in only whom it lets in itself. Where that cannot be (no PC of
-//! the web UI for that machine, not connected, no pane known yet, or the web UI says why not): over the board's own SSH
-//! link (remote/carry.rs). The answer is the path there; a file that went neither way says why.
+//! `<its folder>/.ovis/` (`.herdr-web-ui/` before its rename to Ovis; a task's worktree leaves both out of git,
+//! delegate/worktree.rs). The front door asks with the caller's own headers, so the web UI lets in only whom it lets
+//! in itself. Where that cannot be (no PC of the web UI for that machine, not connected, no pane known yet, or the web
+//! UI says why not): over the board's own SSH link (remote/carry.rs). The answer is the path there; a file that went
+//! neither way says why.
 use crate::json::*;
 use crate::remote::carry::{send_bytes, For};
 use crate::remote::Machine;
 use crate::webui::pcs::{pc_of, Pc};
 use crate::webui::proxy::{ask_with, caller_headers, Head};
 
-/// The web UI as the front door reaches it: its PCs (asked only for a file that goes to another machine), and one POST
-/// of JSON to a path of its API, answered with its status and what it said (None: it did not answer). Tests stand in
-/// for it.
-pub trait WebUi { fn pcs(&self) -> Option<Vec<Pc>>; fn post(&self, path: &str, body: &Value) -> Option<(u16, Value)>; }
+/// The web UI as the front door reaches it: its PCs (asked only for a file that goes to another machine; `pcs_now`
+/// not from what was kept, for a pane just reopened: webui/going.rs), and one POST of JSON to a path of its API,
+/// answered with its status and what it said (None: it did not answer). Tests stand in for it.
+pub trait WebUi { fn pcs(&self) -> Option<Vec<Pc>>; fn pcs_now(&self) -> Option<Vec<Pc>> { self.pcs() } fn post(&self, path: &str, body: &Value) -> Option<(u16, Value)>; }
 /// The front door's: the web UI at `to`, asked with the headers of the request the file came in.
 pub struct Door<'a> { pub head: &'a Head, pub to: (String, u16) }
 /// How long a file may take to reach the other machine through the web UI.
 const WAIT_MS: u64 = 120_000;
 impl WebUi for Door<'_> {
     fn pcs(&self) -> Option<Vec<Pc>> { crate::webui::pcs::ask_pcs(self.head, &self.to) }
+    fn pcs_now(&self) -> Option<Vec<Pc>> { crate::webui::pcs::ask_pcs_now(self.head, &self.to) }
     fn post(&self, path: &str, body: &Value) -> Option<(u16, Value)> {
         let mut h: Vec<(String, String)> = caller_headers(self.head).into_iter().filter(|(k, _)| !k.eq_ignore_ascii_case("x-herdr-machine")).collect();
         h.push(("Content-Type".into(), "application/json".into()));

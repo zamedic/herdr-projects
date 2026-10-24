@@ -54,7 +54,7 @@ this to the board" without being told how.
 ## Commands
 
 `add`, `list`, `report`, `describe`, `delegate`, `after` ([one task after another](after.md)), `tell`, `stop`,
-`approve`, `review`, `retry`, `fix`, `finish`, `details`, `pin`, `archive`, `restore`, `clear`, `set`, `unset`, `show`,
+`approve`, `review`, `retry`, `fix`, `finish`, `details`, `pin`, `unpin` ([pins](pinned.md)), `archive`, `restore`, `clear`, `set`, `unset`, `show`,
 `automations` ([automations](automations.md)), `machines` ([other machines](other-machines.md)), `install`, `update`
 ([installing](install.md)), `remove-extras`.
 
@@ -70,11 +70,12 @@ Coordinator's closing line use them too):
 | `add` | `proj/12: added`, or `proj/12: added, an agent is on it` with `--delegate` |
 | `describe`, a new title, `report` | `updated`, with what changed: `updated (description)`, `updated (title)`, `updated (done)` |
 | `delegate` | `started` |
-| `clear` | `removed` |
+| `clear` | `removed`, and what it ended first: `proj/12: removed. Ended what it started: node …/vite.js (pid 812).` ([what it left running](disk-space.md#what-it-left-running)) |
 | `archive`, `restore` | `archived`, `restored` |
 | `archive --done [--repo NAME]` | `Archived 50 done tasks of mstars.`, and what it left out: `Left out: 1 done but pinned, 2 working.` |
-| `archive --repo NAME`, `restore --repo NAME` | `Archived mstars and its 6 tasks.`, `Restored mstars and its 6 tasks.`, and the tasks it stopped first ([archiving a project](board.md#archiving-a-project)) |
+| `archive --repo NAME`, `restore --repo NAME` (`--on MACHINE`: another machine's) | `Archived mstars and its 6 tasks.`, `Restored mstars and its 6 tasks.`, and the tasks it stopped first ([archiving a project](board.md#archiving-a-project)) |
 | `approve` | `approved` |
+| `pin`, `unpin` (a task, a machine or a project; `--on MACHINE`: another machine's project) | `proj/12: pinned`, `vm-str: pinned`, `mstars on vm-b: unpinned` ([pins](pinned.md)) |
 | `stop` | `stopped`, and what it ended beside the agent: `proj/12: stopped. Ended what it started: bun …/check (pid 812).` |
 
 `stop` interrupts the agent and keeps it, so a reply goes on, and ends what it started for the task: every process
@@ -113,6 +114,9 @@ But their rules name none of these commands, and say plainly: **do nothing to th
 
 - An explicit instruction in the task's own description, or in a message from you, counts. So a task that says "add a
   task for each failing page and delegate it" has its agent do that.
+- It never writes into the board's own folder (`~/.herdr-projects`) itself, by hand or with a program of its own,
+  beyond the files its rules name (its closing note, a reviewer's verdict and evidence): the board changes only
+  through its commands.
 - Work it merely comes across is never made a task. It goes in a short **Also noticed** list at the end of its closing
   note or report, and nothing else is done with it. A reviewer's `preexisting` finding is the same thing in a review: a
   note ([the gate](gate.md)).

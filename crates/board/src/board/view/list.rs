@@ -31,7 +31,7 @@ pub fn head_lines(s: &mut State, t: &Theme, w: usize, h: usize) -> Vec<Inked> {
     // The counts of each status are on the filter row; the archive has none, so its count stays here.
     // The repo with its key beside it (`gtm-agent · AGT`), in the header's quiet ink as the rest of it.
     let where_ = if s.archive_view { "archive".to_string() } else { crate::board::tags::repo_with_key(&repo_label(&s.data.repo), s.data.keys.get(&s.data.repo).map(|k| k.as_str()).unwrap_or("")) };
-    let projects = match s.data.archived.len() { 0 => String::new(), 1 => "1 project, ".into(), p => format!("{p} projects, ") };
+    let projects = match crate::board::update::heads::archived_heads(s).len() { 0 => String::new(), 1 => "1 project, ".into(), p => format!("{p} projects, ") };
     let tally: Vec<String> = if s.archive_view { vec![format!("{projects}{} archived", c("archived"))] } else { vec![] };
     let mut rest: Vec<String> = vec![];
     if s.scope.is_empty() || s.scope == "*" || s.archive_view { rest.push(where_); }
@@ -98,6 +98,8 @@ pub fn heading_words(s: &State, t: &Theme, rows: &[Row], at: usize) -> (Inked, O
     let key = if s.by_repo || (project && s.archive_view) { crate::board::tags::heading_key(s, at) } else { String::new() };
     let named = if *autos { Inked::of(name.clone(), Ink::Auto) } else if *machine || top { Inked::of(name.clone(), MACHINE_INK).bold() } else if s.by_repo || project { Inked::of(crate::board::update::heads::repo_shown(s, id.split('\t').nth(1).unwrap_or(""), name), REPO_HEAD_INK) } else { Inked::of(name.clone(), group_ink(name)) };
     let mut named = if key.is_empty() { named } else { named.add(Inked::of(format!(" · {key}"), Ink::Muted)) };
+    // A pinned machine or project: the pin mark after its name, as a pinned task's (update/pinned.rs).
+    if crate::board::update::pinned::head_pinned(s, id) { named = named.add(crate::board::update::pinned::ink()); }
     // Its coordinator on autopilot: a tag after its name, dimmed as a task's `[research]` (view/pilot.rs).
     let shown = super::pilot::shown(s, t, id);
     if shown.as_ref().is_some_and(|x| x.on) { named = named.add(Inked::of(format!(" {}", super::pilot::PILOT_TAG), Ink::Muted)); }
@@ -122,7 +124,7 @@ fn top_says(s: &State) -> String {
 /// What an empty list says: nothing matches what is typed, nothing archived, nothing yet.
 fn none_lines(s: &State, width: usize) -> Vec<Inked> {
     let typed = (if s.mode == Mode::Find { s.value() } else { s.filter.clone() }).trim().to_string();
-    let none_text = if !s.filter.is_empty() || s.mode == Mode::Find { if typed.is_empty() { "Type to filter.".to_string() } else { format!("Nothing matches \"{typed}\".") } } else if s.archive_view { "No archived tasks.".into() } else { "Nothing here yet. Type what needs doing.".into() };
+    let none_text = if !s.filter.is_empty() || s.mode == Mode::Find { if typed.is_empty() { "Type to filter.".to_string() } else { format!("Nothing matches \"{typed}\".") } } else if s.archive_view { "No archived tasks.".into() } else if crate::board::update::pinned::on(s) { crate::board::update::pinned::empty_says() } else { "Nothing here yet. Type what needs doing.".into() };
     Inked::of(none_text, Ink::Muted).wrap(width.saturating_sub(2).max(8)).into_iter().map(|l| Inked::plain(" ").add(l)).collect()
 }
 struct L { text: Inked, sel: bool, head: bool, n: usize, rest: usize, id: String, auto: bool }
@@ -130,7 +132,7 @@ fn line(text: Inked) -> L { L { text, sel: false, head: false, n: 0, rest: 0, id
 /// The list in `h` lines. `screen`: the whole board's width, which decides whether live rows have their third line.
 pub fn list_lines(s: &mut State, t: &Theme, width: usize, h: usize, screen: usize) -> Vec<Inked> {
     let tall = tall_at(screen);
-    // The room the list has decides how many done rows show: when it changes, they are folded again.
+    // The room the list has decides how many to-dos show: when it changes, they are folded again.
     if h != s.list_room || tall != s.list_tall || width != s.list_width || s.sel != s.fold_sel { s.list_room = h; s.list_tall = tall; s.list_width = width; s.rows = fold_rows(s); }
     let unread = unread_lines(s, width);
     let has_rows = !s.rows.is_empty();

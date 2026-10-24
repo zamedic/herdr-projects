@@ -28,6 +28,10 @@
 | only the reports | `HERDR_PROJECTS_REPORTS_DIR` |
 | only the folder the Coordinator starts in | `HERDR_PROJECTS_COORDINATOR_DIR` |
 
+What the board starts (an agent's tab, a reviewer's, the command agents are handed) is given `HERDR_PROJECTS_HOME`, and
+a part's own variable only for a part kept somewhere else than its place in the home folder. So `HERDR_PROJECTS_HOME`
+set to a scratch folder in front of a command there moves all of it: none of the real board is reached.
+
 The `XDG_*` variables (`XDG_STATE_HOME`, `XDG_CONFIG_HOME`, `XDG_DATA_HOME`) no longer choose a place. They are read for
 one thing only: to find where an older version kept its files, for the move below.
 
@@ -66,9 +70,9 @@ a `closing-1.md` beside `data` and `settings` comes from. Now:
 - **The how-to file** in each agent program's own skills folder (`~/.claude/skills/herdr-projects` and the others), and
   **the marked blocks** in Herdr's `config.toml`. They have to be where those programs read them.
   `herdr-projects remove-extras` takes them out ([installing](install.md)).
-- **The web UI's shared link.** With the Herdr web UI plugin installed, and only after a yes: where that web UI's shared
-  link (`tailscale serve`) points, so the Board shows in it. `herdr-projects web-ui unlink` and `remove-extras` point it
-  back ([the board in the Herdr web UI](web-ui.md)).
+- **The web UI's shared link.** With the web UI (Ovis) installed, and only after a yes: where that web UI's shared link
+  (`tailscale serve`) points, so the Board shows in it. `herdr-projects web-ui unlink` and `remove-extras` point it back
+  ([the board in the web UI (Ovis)](web-ui.md)).
 - **The trust mark for a repo**, in the agent program's own settings (`~/.claude.json`, `~/.codex/config.toml`).
 - **This repo's own test runner** keeps what already passed in `~/.cache/herdr-projects-check` ([testing](testing.md)).
   That is a cache of a tool for working on this code, not something the board keeps for you: delete it any time.

@@ -36,7 +36,7 @@ fn the_automations_are_a_group_of_the_main_list_with_keys_that_turn_fire_and_rem
         "   ⟳ on    Release note after a merge  when a task is merged, in every repo                                  never fired",
         "   ⟳ off   Nightly audit  daily 03:00                                                                        never fired"]);
     assert_eq!(lines[0], " herdr-projects  proj · PRJ");
-    assert!(regex::Regex::new(r"^ +All 1 +Coordinators \d+   Needs you 0   Working 0   Ready 0   To do 1   Done 0   Automations 3$").unwrap().is_match(&lines[1]), "the filter row: {}", lines[1]);
+    assert!(regex::Regex::new(r"^ +All 1 +Coordinators \d+   Needs you 0   Working 0   Ready 0   To do 1   Done 0   Automations 3   Pinned 0$").unwrap().is_match(&lines[1]), "the filter row: {}", lines[1]);
     // the arrows go from the tasks on to the automations' heading and their rows; the hint line shows the keys that act there
     s.press(&["down"]); assert_eq!(s.s.sel, "head:status\t\tautomations"); s.press(&["down"]); assert_eq!(s.s.sel, row_id(&all[0])); assert!(s.s.current().is_none());
     assert!(s.screen(120)[6].starts_with("▌  ⟳ on    Look for old dependencies "));

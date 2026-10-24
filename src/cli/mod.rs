@@ -3,6 +3,7 @@
 //! entries herdr and the agents' hooks run are here; the commands on tasks are cli/tasks.rs.
 pub mod flags;
 pub mod help;
+pub mod pins;
 pub mod tasks;
 
 use crate::err::Res;
@@ -35,8 +36,8 @@ pub fn plugin_folder(c: &Value) -> Option<PathBuf> {
 }
 /// Is the caller the agent of a task? Its shell runs in the task's worker pane (or its reviewer's), in a terminal the
 /// task's agent was seen in: herdr gives a closed pane's id to the next pane of its space, a coordinator's too
-/// (flow/pane_owner.rs). The board's own pane is the plugin's and the Coordinator's pane belongs to no task, so neither
-/// is ever taken for a worker.
+/// (flow/pane_owner.rs). The board's own pane is the plugin's and a coordinator's pane (its saved pane, in the terminal
+/// saved with it) belongs to no task, whatever a task has on record, so neither is ever taken for a worker.
 pub fn caller() -> Option<(Obj, &'static str)> {
     let (pane, socket) = (crate::util::env_val("HERDR_PANE_ID")?, crate::util::env_val("HERDR_SOCKET_PATH")?);
     if crate::util::env_set("HERDR_PLUGIN_ID") { return None; }
@@ -70,7 +71,8 @@ fn run(cmd: &str, a: &Args) -> Res<i32> {
     match cmd {
         // Run by an agent's own hook: silent, always 0.
         "turn-ended" => { crate::turn::turn_ended(&flag("id"), &flag("role"), &flag("token"), a.flags.i("round"), &a.pos[1..]); return Ok(0); }
-        // Run by a program in its own plan mode, when it presents its plan (plan/presented.rs): its answer on stdout, 0.
+        // Run by a Claude Code an older board started in its plan mode, when it presents its plan (plan/presented.rs,
+        // kept one release): its answer on stdout, 0.
         "plan-written" => { if let Some(j) = crate::plan::presented::presented(&flag("id"), &flag("token"), stdin_json()) { println!("{j}"); } return Ok(0); }
         "hook" => { crate::hook::hook_main(); return Ok(0); }
         "keeper" => { crate::keeper::keeper_main(); return Ok(0); }

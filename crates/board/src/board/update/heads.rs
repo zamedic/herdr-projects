@@ -18,9 +18,16 @@ pub fn machine_id(host: &str) -> String { format!("{HEAD}machine\t{host}") }
 /// A group's heading, under its machine: grouped by repo and by status each fold their own. An archived project's in
 /// the archive is a repo's, whatever the grouping.
 pub fn group_id(s: &State, host: &str, name: &str) -> String { format!("{HEAD}{}\t{host}\t{name}", if s.by_repo || archived_head(s, host, name) { "repo" } else { "status" }) }
-/// Whether `name` is an archived project of this machine with its own heading here: in the archive, whatever the
-/// grouping (update/archive_project.rs), with its tasks under it, or alone (`0 tasks`).
-pub fn archived_head(s: &State, host: &str, name: &str) -> bool { s.archive_view && host.is_empty() && (s.scope.is_empty() || s.scope == "*") && s.data.archived.iter().any(|r| r == name) }
+/// Whether `name` is an archived project of the machine `host` ("" this one) with its own heading here: in the archive,
+/// whatever the grouping (update/archive_project.rs), with its tasks under it, or alone (`0 tasks`).
+pub fn archived_head(s: &State, host: &str, name: &str) -> bool { s.archive_view && (s.scope == host || s.scope == "*") && archived_of(s, host).iter().any(|r| r == name) }
+/// The archived projects of the machine `host` ("" this one), as it last said them.
+pub fn archived_of<'a>(s: &'a State, host: &str) -> &'a [String] { if host.is_empty() { &s.data.archived } else { s.remotes.get(host).map(|m| &m.archived[..]).unwrap_or(&[]) } }
+/// The archived projects with their own heading in the archive, each with its machine: (machine, repo).
+pub fn archived_heads(s: &State) -> Vec<(String, String)> {
+    let hosts: Vec<String> = if s.scope == "*" { std::iter::once(String::new()).chain(s.remotes.keys().cloned()).collect() } else { vec![s.scope.clone()] };
+    hosts.iter().flat_map(|h| archived_of(s, h).iter().filter(|p| archived_head(s, h, p)).map(|p| (h.clone(), p.clone()))).collect()
+}
 /// The machine a task is on: "" this machine, else the name the board knows it by.
 pub fn host_of(r: &Obj) -> String { r.t("host") }
 /// A repo's name as its row reads on the machine `host` ("" this one): the home folder as `~`, there too (another
@@ -43,7 +50,10 @@ pub fn empty_shown(s: &State) -> bool { filter_now(s).is_empty() && !s.archive_v
 /// Whether the repo `name` of the machine `host` has its heading with nothing in view: by repo, on this machine, for a
 /// repo used lately (data.rs: used_lately), and not while a filter or the archive narrows the list. It shows folded
 /// (`0 tasks`), so that its project coordinator is still a space away.
-pub fn empty_repo(s: &State, host: &str, name: &str) -> bool { s.by_repo && host.is_empty() && empty_shown(s) && s.data.lately.iter().any(|r| r == name) }
+pub fn empty_repo(s: &State, host: &str, name: &str) -> bool {
+    if super::pinned::on(s) { return super::pinned::empty_repo(s, host, name); } // Pinned's own (pinned.rs)
+    s.by_repo && host.is_empty() && empty_shown(s) && s.data.lately.iter().any(|r| r == name)
+}
 /// One machine's part of the list: its groups, and whether it has a row of its own (all but in the archive: the one
 /// machine shown has it as the top row, top.rs).
 pub struct Part { pub host: String, pub heading: bool, pub groups: Vec<(String, Vec<Rec>)> }
@@ -59,6 +69,10 @@ pub fn parts(s: &State, groups: &[(String, Vec<Rec>)]) -> Vec<Part> {
     if empty_shown(s) { for m in super::remotes::others(s) { if m.ok && !hosts.contains(&m.machine.label) { hosts.push(m.machine.label.clone()); } } }
     // Under Needs you, a machine whose coordinators ask you, though no task of its does.
     for h in super::shows::hosts(s) { if !hosts.contains(&h) && super::shows::host_needs(s, &h) { hosts.push(h); } }
+    // Under Pinned, a pinned machine, or one with a pinned project, though none of its tasks shows.
+    for h in super::pinned::hosts(s) { if !hosts.contains(&h) { hosts.push(h); } }
+    // In the archive, a machine with an archived project, though none of its tasks shows.
+    for (h, _) in archived_heads(s) { if !hosts.contains(&h) { hosts.push(h); } }
     hosts.sort_by_key(|h| super::remotes::place(s, h));
     hosts.into_iter().map(|h| Part { groups: groups.iter().map(|(n, recs)| (n.clone(), recs.iter().filter(|r| host_of(r) == h).cloned().collect())).collect(), host: h, heading: true }).collect()
 }

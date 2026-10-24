@@ -115,9 +115,10 @@ pub fn same_origin(h: &Head) -> bool {
     if let Some(s) = site { if s != "same-origin" { return false; } }
     match h.header("origin") { None => site.is_some(), Some(o) => o.split("://").nth(1).map(|x| x.split('/').next().unwrap_or("")) == h.header("host") }
 }
-/// What a watching device may not do; and what it may (its own selection and filter, a key that only shows).
+/// What a watching device may not do; and what it may (its own selection and filter, the filter row and its grouping
+/// chip, a key that only shows). A call the page makes that is in neither is not found (tests/web_door/calls.rs).
 pub const CHANGES: [&str; 3] = ["send", "set", "attach"];
-pub const LOOKS: [&str; 6] = ["press", "pick", "find", "fold", "scope", "dock"];
+pub const LOOKS: [&str; 8] = ["press", "pick", "find", "fold", "show", "group", "scope", "dock"];
 fn ours(mut client: TcpStream, head: &Head, rest: Vec<u8>, up: &dyn Upstream) {
     let path = head.path().to_string();
     let rel = path.get(BASE.len() + 1..).unwrap_or("").to_string();
@@ -125,8 +126,8 @@ fn ours(mut client: TcpStream, head: &Head, rest: Vec<u8>, up: &dyn Upstream) {
     // A call: its page and its calls keep to a call's own rules (voice/api.rs), before the web UI is asked.
     if let Some(v) = rel.strip_prefix("api/voice/") { let v = v.to_string(); return super::voice::api::route(client, head, rest, up, &v); }
     let Some(call) = rel.strip_prefix("api/").map(String::from) else { return json_out(&mut client, 404, &json!({ "ok": false, "msg": "Not found" })) };
-    let Some(to) = up.to() else { return json_out(&mut client, 503, &json!({ "ok": false, "msg": "The herdr web UI is not answering." })) };
-    let role = match who(head, &to) { Ok(r) => r, Err(w) => return json_out(&mut client, if w == "down" { 503 } else { 401 }, &json!({ "ok": false, "msg": if w == "down" { "The herdr web UI is not answering." } else { "Log in to the herdr web UI first." } })) };
+    let Some(to) = up.to() else { return json_out(&mut client, 503, &json!({ "ok": false, "msg": "The web UI (Ovis) is not answering." })) };
+    let role = match who(head, &to) { Ok(r) => r, Err(w) => return json_out(&mut client, if w == "down" { 503 } else { 401 }, &json!({ "ok": false, "msg": if w == "down" { "The web UI (Ovis) is not answering." } else { "Log in to the web UI (Ovis) first." } })) };
     let q: std::collections::HashMap<String, String> = head.target.split_once('?').map(|(_, q)| q.split('&').filter_map(|p| p.split_once('=').map(|(k, v)| (crate::util::url_decode(k), crate::util::url_decode(&v.replace('+', " "))))).collect()).unwrap_or_default();
     let client_id = q.get("client").cloned().unwrap_or_default();
     let machine: String = q.get("machine").cloned().unwrap_or_default().chars().take(80).collect();
@@ -134,7 +135,7 @@ fn ours(mut client: TcpStream, head: &Head, rest: Vec<u8>, up: &dyn Upstream) {
     if head.method == "GET" {
         if call == "hello" { return json_out(&mut client, 200, &json!({ "ok": true, "role": role })); }
         if call == "boards" { let pcs = super::pcs::ask_pcs(head, &to); let out = super::web::call(&client_id, "boards", json!({ "role": role }), &machine, pcs); return answer(&mut client, out, &role); }
-        if call == "board" { let pcs = if needs_pcs("board") { super::pcs::ask_pcs(head, &to) } else { None }; let out = super::web::call(&client_id, "board", json!({ "have": q.get("have").cloned().unwrap_or_default(), "role": role }), &machine, pcs); return answer(&mut client, out, &role); }
+        if call == "board" { let pcs = if needs_pcs("board") { super::pcs::ask_pcs(head, &to) } else { None }; let ui = super::attach::far::Door { head, to: to.clone() }; let out = super::web::call_with(&client_id, "board", json!({ "have": q.get("have").cloned().unwrap_or_default(), "role": role }), &machine, pcs, Some(&ui)); return answer(&mut client, out, &role); }
         return json_out(&mut client, 404, &json!({ "ok": false, "msg": "Not found" }));
     }
     if head.method != "POST" || !(CHANGES.contains(&call.as_str()) || LOOKS.contains(&call.as_str())) { return json_out(&mut client, 404, &json!({ "ok": false, "msg": "Not found" })); }

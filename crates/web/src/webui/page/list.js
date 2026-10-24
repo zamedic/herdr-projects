@@ -4,8 +4,14 @@
 /* global ResizeObserver, localStorage */
 import { h, icon, ink, said, markEl } from "./dom.js";
 
-// What is said of a task after its title (`×3`, `[auto]`, `[research]` …) is dimmed: colour means status only.
-const titleOf = (r) => { const m = /(?: ×\d+)?(?: \[[a-z]+\])*$/.exec(r.title); const at = m && m[0] ? m.index : -1; return at < 0 ? r.title : [r.title.slice(0, at), h("span.sw-count", r.title.slice(at))]; };
+// What is said of a task after its title (`×3`, `[auto]`, `[research]` …) is dimmed: colour means status only. The pin
+// mark `★` last is yellow, as on the terminal board (board/view/fields.rs).
+const PIN = " ★";
+const titleOf = (r) => {
+  const pinned = r.title.endsWith(PIN), t = pinned ? r.title.slice(0, -PIN.length) : r.title;
+  const m = /(?: ×\d+)?(?: \[[a-z]+\])*$/.exec(t); const at = m && m[0] ? m.index : t.length;
+  return [t.slice(0, at), at < t.length ? h("span.sw-count", t.slice(at)) : null, pinned ? h("span.sw-count", " ", h("span.sw-pin", PIN.trim())) : null];
+};
 
 export function rowEl(r, { selected, opened, onPick, onOpen }) {
   const tags = h("span.sw-tags", r.review?.length ? ink(r.review, "sw-tag") : null,
@@ -104,5 +110,5 @@ function drawList(list, { opened, onPick, onOpen, onMore, onFold, actions, onPre
   return h("div.sw-list", { role: "listbox", "aria-label": "Tasks" }, unread, jobs, list.groups.map((g) => h(`section.sw-group.is-${g.top ? "top" : g.machine ? "machine" : g.repo ? "project" : g.automations ? "autos" : "group"}`,
     headEl(g, g.id === list.selected, { onFold, onOpen, onPick, actions, onPress }),
     g.rows.length ? h("ul.sw-rows", g.rows.map((r) => rowEl(r, { selected: r.id === list.selected, opened: r.id === opened, onPick, onOpen }))) : null,
-    g.more ? h("button.btn.btn-ghost.sw-more", { type: "button", style: `--d:${g.rows[0]?.depth ?? g.depth ?? 0}`, onclick: () => onMore(g) }, `Show ${g.more} more`) : null)));
+    g.more ? h("button.btn.btn-ghost.sw-more", { type: "button", style: `--d:${g.rows[0]?.depth ?? g.depth ?? 0}`, onclick: () => onMore(g) }, `Show ${g.more} done`) : null)));
 }

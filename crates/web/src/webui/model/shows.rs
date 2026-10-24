@@ -1,6 +1,6 @@
 //! The filter row for the web board, as the terminal board has it under its header (board/view/shows_row.rs): whose
 //! board first, where there is another machine (`All machines`, or the one machine shown, lit), then every filter with
-//! its count (All, Coordinators, Needs you, Working, Ready, To do, Done, Automations), the one shown lit in its own
+//! its count (All, Coordinators, Needs you, Working, Ready, To do, Done, Automations, Pinned), the one shown lit in its own
 //! colour, a count of what needs you in red. None in the archive, which has no filter row. A tap on a filter shows it
 //! (web.rs: `show`); a tap on the machine picks whose board.
 use crate::board::state::State;
