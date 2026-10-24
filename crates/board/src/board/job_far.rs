@@ -33,6 +33,9 @@ pub fn dispatch(m: Machine, text: String, delegate: bool, about: String, to: Str
 }
 /// One of the exact actions, on a task or an automation that lives on another machine.
 pub fn far(m: &Machine, host: &str, action: &str, req: Value, quiet: bool) -> Done {
+    if crate::remote::projects::is_project_action(action) { return project(m, host, action == "project-archive", &req); }
+    // A machine or a project pinned there: that machine says so with its tasks (remote/pins.rs).
+    if crate::remote::pins::is_pin_action(action) { return match crate::remote::pins::ask_there(m, &req) { Ok(j) => Done::say(j.t("msg"), Ink::Muted), Err(e) => Done::fail(e.msg) }; }
     let mut req = obj(req);
     req.put("action", action);
     // A task's work settings travel with whatever starts its agent: what this machine says for it is worked out here.
@@ -60,6 +63,17 @@ pub fn far(m: &Machine, host: &str, action: &str, req: Value, quiet: bool) -> Do
             if action == "set" || action == "auto-set" { d.then.push(Then::Saved(req.t("name"))); }
             if action == "auto-remove" { d.then.push(Then::AutoGone); }
             d
+        }
+    }
+}
+/// A project of another machine archived or restored there (remote/projects.rs), asked from what the board saw of it.
+fn project(m: &Machine, host: &str, archive: bool, req: &Value) -> Done {
+    let seen = req.at("seen").is_object().then(|| crate::remote::projects::Seen { tasks: req.at("seen").i("tasks").max(0) as usize, asked: req.at("seen").b("asked") });
+    match crate::remote::projects::ask_there(m, archive, req.s("repo"), seen) {
+        Err(e) => Done::fail(e.msg),
+        Ok(j) => {
+            let said = if archive { format!(" {} shows it; {} there brings it back.", key_name("archiveView"), key_name("archive")) } else { String::new() };
+            Done::say(format!("{host}: {}{said}", j.s("msg")), if j.s("msg").contains("Still on the board") { Ink::Yellow } else { Ink::Green })
         }
     }
 }
@@ -171,12 +185,12 @@ pub fn web_open(id: &str, far: Option<(Machine, String, String, String)>) -> Don
             Err(why) => Done::fail(unanswered(&host, &why)),
             Ok(j) if !j.b("ok") => Done::fail(j.t("msg")),
             Ok(j) => { let p = if j.b("pane") { j.t("pane") } else { pane }; let ws = if j.b("workspace") { j.t("workspace") } else { p.split(':').next().unwrap_or("").to_string() };
-                Done::default().and(Then::Go(json!({ "machine": pc, "pane": p, "workspace": ws, "view": if j.at("hasAgent") == &json!(false) { "terminal" } else { "chat" } }))) }
+                Done::default().and(Then::Go(json!({ "machine": pc, "pane": p, "workspace": ws, "view": if j.at("hasAgent") == &json!(false) { "terminal" } else { "chat" }, "space": format!("{host}: {id}") }))) }
         };
     }
     let Some(t) = get(id) else { return Done::fail(format!("{id} is gone.")) };
     if let Err(e) = crate::flow::live::assert_live(&t) { return Done::fail(e.msg); }
     let (pane, _, _) = match crate::delegate::jobs::reopen(id, false) { Ok(x) => x, Err(e) => return Done::say(e.msg, Ink::Yellow) };
     let has_agent = Herdr::new(Some(t.at("link").t("socket"))).agent_get(pane.s("pane_id")).ok().flatten().is_some();
-    Done::default().and(Then::Go(json!({ "pane": pane.t("pane_id"), "workspace": pane.t("workspace_id"), "view": if has_agent { "chat" } else { "terminal" } })))
+    Done::default().and(Then::Go(json!({ "pane": pane.t("pane_id"), "workspace": pane.t("workspace_id"), "view": if has_agent { "chat" } else { "terminal" }, "space": crate::flow::sidebar::space_label(&t) })))
 }

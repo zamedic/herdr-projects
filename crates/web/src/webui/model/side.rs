@@ -86,7 +86,7 @@ pub fn side_of(s: &mut State, t: &Theme) -> Obj {
     let project = crate::board::update::archive_project::says(s);
     let menu: Vec<Value> = crate::board::update::menu::items(s).into_iter().filter(|i| {
         let id = entry(i.id).name;
-        !i.mine && !TERMINAL_ONLY.contains(&id) && entry(i.id).web.is_some() && !["yes", "sendBack"].contains(&id) && (id != "undo" || s.draft_away.is_some() || s.archive_undo.is_some()) && (!["stop", "archive", "pin"].contains(&id) || r.is_some() || (id == "archive" && !project.is_empty()))
+        !i.mine && !TERMINAL_ONLY.contains(&id) && entry(i.id).web.is_some() && !["yes", "sendBack"].contains(&id) && (id != "undo" || s.draft_away.is_some() || s.archive_undo.is_some()) && (!["stop", "archive", "pin"].contains(&id) || r.is_some() || (id == "archive" && !project.is_empty()) || (id == "pin" && !i.label.is_empty()))
     }).map(|i| json!({ "id": entry(i.id).name, "group": i.group, "label": i.label })).collect();
     let can_open = r.as_ref().map(|r| r.has("title") && !r.b("archivedAt") && if r.b("host") { r.at("link").b("pane") } else { is_agent(r) }).unwrap_or(false);
     obj(json!({

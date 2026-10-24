@@ -68,7 +68,7 @@ pub struct Sent { pub text: String, pub over: (String, Value, Value), pub at: i6
 pub struct ChatAt { pub key: String, pub top: Option<usize>, pub lines: Vec<String>, pub end: bool }
 #[derive(Clone, Debug, Default)]
 pub struct ChatFit { pub total: usize, pub rows: usize, pub top: usize, pub above: usize, pub below: usize, pub latest: usize }
-/// One row of the folded list: a heading, a task, a note ("↓ 3 more done"), or an automation. A heading is a machine's
+/// One row of the folded list: a heading, a task, a note ("↓ 3 done"), or an automation. A heading is a machine's
 /// (`machine`, with every machine shown) or a group's (a repo, a status, a machine's automations: `autos`), selectable
 /// by its `id` (update/heads.rs). `folded` holds how many rows it hides, tasks and automations (0: open), `folded_autos`
 /// how many of those are automations. `empty`: a machine's with nothing in view, or a repo's used lately with no task in view, which shows folded (`0 tasks`).
@@ -93,11 +93,12 @@ pub struct Pending { pub word: String, pub fail: String, pub at: i64, pub was: S
 #[derive(Clone, Debug, Default)]
 pub struct Held { pub columns: u16, pub rows: u16, pub room: (u16, u16), pub by: Vec<(i64, i64)>, pub known: bool }
 
-/// The web board's own (webui/web.rs): the agent page to go to, how often the settings part was asked for, the messages
+/// The web board's own (webui/web.rs): the agent page to go to (`going`: one held, with when, until the web UI shows
+/// that pane: webui/going.rs), how often the settings part was asked for, the messages
 /// counted (a page shows each once), and the web UI's PCs with the one its page is on. `own_scope`: whose board it
 /// shows was picked on the web, and is kept as the web's own; else it is the terminal board's (web.rs).
 #[derive(Clone, Debug, Default)]
-pub struct Web { pub go: Option<Value>, pub show_settings: i64, pub msg_n: i64, pub pcs: Option<Vec<crate::webui::pcs::Pc>>, pub at: Option<String>, pub stranger: String, pub stranger_tried: i64, pub followed: Option<String>, pub own_scope: bool }
+pub struct Web { pub go: Option<Value>, pub going: Option<(Value, i64)>, pub show_settings: i64, pub msg_n: i64, pub pcs: Option<Vec<crate::webui::pcs::Pc>>, pub at: Option<String>, pub stranger: String, pub stranger_tried: i64, pub followed: Option<String>, pub own_scope: bool }
 
 pub struct State {
     pub ctx: Ctx,

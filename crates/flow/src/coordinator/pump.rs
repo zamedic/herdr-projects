@@ -85,7 +85,7 @@ fn ensure(api: &Herdr, co: &Co) -> Res<(Obj, bool)> {
     let mut pane = if c.b("pane") { api.pane_get(c.s("pane")) } else { None };
     if c.b("workspace") { match move_over(api, co, false) { Ok(p) => pane = p, Err(_) => { close_place(api, &c); let _ = change(co, |c| { nowhere(c); true }); pane = None; } } }
     // A board kept somewhere else than the default is the board its commands must reach.
-    let env: Vec<(String, String)> = ["HERDR_PROJECTS_DATA_DIR", "HERDR_PROJECTS_CONFIG_DIR"].iter().filter_map(|k| std::env::var(k).ok().filter(|v| !v.is_empty()).map(|v| (k.to_string(), v))).collect();
+    let env: Vec<(String, String)> = ["HERDR_PROJECTS_HOME", "HERDR_PROJECTS_DATA_DIR", "HERDR_PROJECTS_CONFIG_DIR", "HERDR_PROJECTS_REPORTS_DIR"].iter().filter_map(|k| std::env::var(k).ok().filter(|v| !v.is_empty()).map(|v| (k.to_string(), v))).collect();
     let pane = match pane { Some(p) => p, None => open_tab(api, co, &env)? };
     c = get(co).unwrap_or_default();
     if api.agent_get(pane.s("pane_id"))?.is_some() { return Ok((c, false)); }
@@ -121,7 +121,7 @@ fn ensure(api: &Herdr, co: &Co) -> Res<(Obj, bool)> {
     }
     let version = installed::version_of(&k);
     c = change(co, |c| {
-        c.put("run", run.clone()); c.put("pick", Value::Null); c.put("agent", name.clone()); c.put("startedAt", now()); c.put("version", version.clone()); c.put("starting", 0);
+        c.put("run", run.clone()); c.put("pick", Value::Null); c.put("agent", name.clone()); c.put("startedAt", now()); c.put("version", version.clone()); c.put("starting", 0); c.put("rulesHash", super::rules_news::hash(&text));
         c.put("intro", !reads && resume.is_none()); // a program not known to read a rules file: one line before the first message points at it
         if resume.is_none() { c.put("session", session.clone().map(Value::String).unwrap_or(Value::Null)); c.put("transcript", Value::Null); c.put("since", began); c.put("seen", Value::Null); }
         true
@@ -201,7 +201,8 @@ fn run_pump(co: &Co, taken: &mut HashSet<String>) -> Res<()> {
             let now_look = look_now(co);
             let (over, over_id) = (now_look.said.clone(), now_look.turn.as_ref().filter(|t| t.finished).map(|t| t.id.clone()).unwrap_or_default());
             let intro = get(co).map(|c| c.b("intro")).unwrap_or(false);
-            let words_in = if intro { format!("{}\n\n{}", intro_line_of(co), m.s("text")) } else { m.t("text") };
+            let (news, rules_hash) = super::rules_news::before_next(co, &get(co).unwrap_or_default(), m.b("autopilot"));
+            let words_in = super::rules_news::with_head(if intro { Some(intro_line_of(co)) } else { news }, m.s("text"), m.b("autopilot"));
             let typed = match hand(&api, c.s("pane"), &words_in) {
                 Ok(t) => t,
                 Err(e) if e.code == "agent_blocked" || e.code == "agent_not_ready" => { unsay(); stuck = true; break; }
@@ -213,7 +214,7 @@ fn run_pump(co: &Co, taken: &mut HashSet<String>) -> Res<()> {
                 for x in l.iter_mut() { if x.s("id") == id { if let Some(o) = x.as_object_mut() { o.put("sentAt", now()); } } }
                 c.put("where", trimmed(&l));
                 c.put("mark", json!({ "run": run, "seq": seq, "rest": at_rest }));
-                c.put("intro", false); c.put("sentAt", now());
+                c.put("intro", false); c.put("rulesHash", rules_hash.clone()); c.put("sentAt", now());
                 if !m.b("autopilot") { c.put("last", m.at("said").clone()); c.put("over", over.clone()); c.put("overId", over_id.clone()); } // a wake is no words of yours
                 // Who its turn is on: a task's agent that sent it (coordinator tell), and an autopilot wake (autopilot/).
                 c.put("typedFrom", m.at("sender").clone()); c.put("typedId", id.clone());

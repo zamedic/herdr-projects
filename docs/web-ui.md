@@ -1,16 +1,21 @@
-# The board in the Herdr web UI
+# The board in the web UI (Ovis)
 
-**With the [Herdr web UI](https://github.com/devswha/herdr-web-ui) plugin installed beside this one, the board is part of
+**With the web UI [Ovis](https://github.com/devswha/ovis) installed in Herdr beside this plugin, the board is part of
 that web UI**: a **Boards** section in its sidebar, one entry per machine, at the same link and behind the same login.
 It does what the terminal board does, with buttons and touch instead of keys, on a phone and on a desktop. Without the
-web UI plugin, none of this runs.
+web UI, none of this runs.
+
+Ovis was called herdr-web-ui before, and an install from then may still have its old plugin id until Ovis's installer
+moves it: the board finds it under either, `devswha.ovis` first, then `devswha.herdr-web-ui`
+([its two names](#its-two-names)).
 
 ## Setting it up
 
-1. **Install both plugins.** From then on a small **front door** of the board's own runs on this machine, in front of the
-   web UI. It starts with Herdr and is kept up by the keeper.
+1. **Install both plugins** (Ovis as [its own page](https://github.com/devswha/ovis) says). From then on a small
+   **front door** of the board's own runs on this machine, in front of the web UI. It starts with Herdr and is kept up
+   by the keeper.
 2. **Share the web UI** as it says itself (its Settings → Phone shows the `tailscale serve` command).
-3. **Say yes once.** The next time you open the board in the terminal, it asks: *Show this board in the herdr web UI?*
+3. **Say yes once.** The next time you open the board in the terminal, it asks: *Show this board in the web UI (Ovis)?*
    **Yes** points the web UI's shared link at the front door. **No** leaves the link alone for good. **Later** asks again
    the next time the board opens.
 
@@ -86,7 +91,7 @@ dark and every palette of the web UI by itself.
 
 | On the terminal board | On the web board |
 |---|---|
-| the filter row under the header: whose board, then `All`, `Coordinators`, `Needs you`, `Working`, `Ready`, `To do`, `Done`, `Automations` with their counts (`tab`) | the same row under the header, each filter a pill with its count, the one shown lit in its own colour (`Needs you` red, `Working` amber, `Ready` green, `Coordinators` the accent, `Automations` purple, the others the base colour), a count of what needs you in red. A tap shows a filter. Whose board stands first, where there is another machine (`All machines`, or the machine shown, lit): a tap lists every board to pick one, as the sidebar's Boards section does. On a phone the row scrolls sideways and the names are the short ones (`Needs`, `Coords`, `Autos`). The page keeps the filter shown for the next page. None in the archive |
+| the filter row under the header: whose board, then `All`, `Coordinators`, `Needs you`, `Working`, `Ready`, `To do`, `Done`, `Automations`, `Pinned` with their counts (`tab`) | the same row under the header, each filter a pill with its count, the one shown lit in its own colour (`Needs you` red, `Working` amber, `Ready` green, `Coordinators` the accent, `Automations` purple, the others the base colour), a count of what needs you in red. A tap shows a filter. Whose board stands first, where there is another machine (`All machines`, or the machine shown, lit): a tap lists every board to pick one, as the sidebar's Boards section does. On a phone the row scrolls sideways and the names are the short ones (`Needs`, `Coords`, `Autos`). The page keeps the filter shown for the next page. None in the archive |
 | the list, its groups, marks, progress, review and pull request tags | the same list; a pull request's tag is a link. The agent at work is a full dot, its reviewer the right half of one, and the board's own steps the lower half: all three drawn at one size (as text the two half discs came out a third the size of the dot). Every other mark is the terminal board's own character (one cross, `✗`; `◆` ready to approve; `@` a sign-in). Each row stands as far in as the terminal sets it: all machines → machine → project → task ([list headings](list-headings.md)) |
 | a machine's row and a project's row: its coordinator, read as a task's row | the same: its coordinator's mark where a task has its mark (`○` idle, `◐` working, `?` asks you, `✗` could not start), its name, its time on the right; on autopilot a dimmed `[autopilot]` after its name and what autopilot does under it, in a task's grey second line. The top row (`All machines`, or the machine shown) says what it holds (`2 projects · 14 tasks`). A tap selects it, as a task's row; its caret folds and unfolds it. Selected, its **Open** shows the coordinator whole, with its buttons (start, stop, autopilot, archive this project). A status group's heading folds with a tap anywhere on it |
 | moving between tasks | tap a task (or a machine's or a project's row): it is selected, as the cursor selects it on the terminal board, and nothing opens. The selected row has a bar in its gutter as well as its tint, and an **Open task** button (**Open automation** on an automation's row), which shows it whole; Enter on the selected row does the same. On a wide screen, with a task already open beside the list, the open task follows the selection, as the terminal board's side panel does |
@@ -106,9 +111,10 @@ dark and every palette of the web UI by itself.
 | the board's message to you | a short notice above the chat. One that says something went wrong stays until dismissed. Nothing confirms what went well: the row says what is under way (`Starting…`, `Stopping…`, `Archiving…`), on a coordinator's row in its time's place |
 | the automations: a group of each machine's part of the list, one of them whole, on and off, fire now, remove | the same group in the same place (after the machine's task groups; grouped by repo, under the repo), on a phone and on a wide screen, under a heading in the automations' own purple that folds as the others do ([colours](colours.md)). Its rows are in the task rows' places: the mark (`⟳`, an arrow going round, drawn at the size of the round marks; dimmed while off); the word `on` or `off` where a task has its number (on a list too narrow for the numbers it goes with them, so every title still starts at one left edge, and is then the first word under the name: `off · every 2h`); the name; the next or last firing where a task has its time (`next in 4m`); under the name the trigger (and why it was turned off, never clamped to two lines); and the task its last firing made where a task has its tags. A task an automation made has its `[auto]` tag in that purple. A row tapped open is the automation, whole, with the same buttons, each firing a link to its task. Another machine's is named as its tasks are ([automations](automations.md)) |
 | find, the archive, grouping by status, repo or machine, all done tasks, other machines | the search button, and **Show** in More…; what is on shows as a chip under the filter row (`Find: …`, `Archive`, `By repo`, `By machine`), and its × puts the plain view back (by status, for a grouping). Whose tasks show is the filter row's first item |
+| pins (`ctrl+p`) | the yellow pin mark `★` after a pinned row's name; **Pin** in More… on a task, a project's or a machine's row; `Pinned`, the last filter on the filter row, shows only what is pinned ([pins](pinned.md)) |
 | archiving a project (`ctrl+a` on its row), restoring it in the archive | select the project's row: **Archive** is among its coordinator's buttons (Open) and in More… (`Archive this project with its tasks`), with the same question first where a task of it works, waits or is to do. In the archive, the archived project's row, selected, has **Restore this project** under it ([archiving a project](board.md#archiving-a-project)) |
 | a machine whose tasks cannot be read: a line where its tasks would be, with why and what to do | one notice over the list: `vm-a and vm-b do not answer, so their tasks are not shown. The board keeps asking by itself.`, then a line each with why (`vm-a: cannot connect (its name is not known).`) and **What to do** behind it. Its × dismisses it in that browser until another machine stops answering or one answers for another reason. A machine asked for the first time is one quiet line, `Asking vm-a for its tasks…` |
-| going into a task's agent | **Open this task's agent**: the web UI's own view of that pane (chat, or the terminal when no agent is in it) |
+| going into a task's agent | **Open this task's agent**: the web UI's own view of that pane (chat, or the terminal when no agent is in it); a closed space is opened again first ([opening a task's agent](#opening-a-tasks-agent)) |
 
 **The page speaks web and fits a thumb.**
 
@@ -138,6 +144,23 @@ browser tab until it is sent.
 
 A task on [another machine](other-machines.md) shows and acts as on the terminal board. Its agent's pane is on that
 machine: the board says so instead of opening it.
+
+## Opening a task's agent
+
+**Open this task's agent** opens the task's space again when it was closed (approving or archiving closes it), as the
+terminal board does, and the page then goes to the web UI's own view of its pane.
+
+- **The page goes only once the web UI shows that pane.** A space opened again is a new workspace and pane, and the web
+  UI's page drops an address that names a pane it does not know yet: Ovis 0.4.13 stayed on the pane it was on, and the
+  button seemed to do nothing ([#356](https://github.com/eliasstravik/herdr-projects/issues/356)). So the board asks the
+  web UI which panes it has (its `/api/machines`) until the new one is there, for 8 seconds at most. That took about a
+  second in the check below.
+- **When it still is not there, the page stays and says so**: *“HP-1 Make f” is open in herdr, but the web UI (Ovis) does
+  not show it yet, so the page stayed here. Pick it in the web UI's sidebar in a moment, or open the agent again.*
+- **The page checks that the web UI went.** Where the web UI still drops the address, it is written again a few times, a
+  second apart; then the address is put back, the Board comes back, and it says the web UI did not go to that space.
+- **A space that cannot be opened again** says why (its worktree is gone, say), and the page stays.
+- A web UI that does not say which panes it has gets the address at once, as before.
 
 ## The chat full screen
 
@@ -233,18 +256,40 @@ The board is as protected as the web UI, by the web UI:
   read, a web UI that is down. Not logged in, nothing of the board can be read or changed.
 - **A call that changes something must come from the board's own page**: the same origin, and a header of the board's own
   (`x-herdr-projects`), which a page of another site cannot send. The web UI asks the same of its own controls.
-- **A device the web UI paired to *watch*** can look at the board and change nothing: it can select, find, and show or
-  hide; it cannot send, approve, stop or archive.
+- **A device the web UI paired to *watch*** can look at the board and change nothing: it can select, find, pick a filter on
+  the filter row, put the grouping back to by status, and show or hide; it cannot send, approve, stop or archive.
 - The page's own files (scripts and styles) hold no task and are public, as the web UI's own files are.
 - **Private only.** The front door listens on `127.0.0.1` and nowhere else. The only way to it from another device is the
   web UI's own private link (`tailscale serve`). A link open to the internet (Tailscale Funnel) is never pointed at it,
   and nothing here ever makes one.
 
+## Its two names
+
+The web UI was renamed from herdr-web-ui to Ovis. Ovis 0.4.13, its release at the time of writing, still has the old
+plugin id; its code after that has the new one, its installer moves an install over, and the names of its own files
+changed with it. The board reads each of them as the web UI under that id does:
+
+| What | Ovis (`devswha.ovis`) | Before the rename (`devswha.herdr-web-ui`) |
+|---|---|---|
+| Found in Herdr's plugins | first: where Herdr lists both (while Ovis's installer moves it), Ovis | when Ovis is not installed, or turned off |
+| The port a start of it settled on (`plugin-port`) | in `OVIS_STATE_DIR`, else `~/.config/ovis` (`$XDG_CONFIG_HOME/ovis`); in `~/.config/herdr-web-ui` while that still holds state of its own, as Ovis itself does when it could not move it over | in `HERDR_WEB_STATE_DIR`, else `~/.config/herdr-web-ui` |
+| Files pasted in its chat box, beside a pane | `.ovis/` in the pane's folder (or `OVIS_PASTE_DIR`) | `.herdr-web-ui/` |
+| Its settings in the browser | `ovis:settings` | `herdr-web-ui:settings` |
+
+- A task's worktree leaves both paste folders out of git (in the repo's `.git/info/exclude`; a repo whose rule was written
+  before gets `.ovis/` added the next time a task starts there).
+- The board's page reads `ovis:settings` first, then the old record (Ovis moves the old one over the first time it
+  opens): Enter sends, Files at once, and Voice input are the ones you chose there.
+- `herdr-projects web-ui` says which id it found, and its version: `Web UI (Ovis): found at http://127.0.0.1:7317
+  (devswha.ovis 0.4.13)`. Not found, it names both ids.
+- Its `PORT` and `HOST` are in the `env` or `.env` of the plugin's config folder (`herdr plugin config-dir devswha.ovis`),
+  as before.
+
 ## Why a front door
 
 The web UI has no place for an add-on (checked on herdr-web-ui 0.4.8). Its pages allow scripts and connections from its
-own address only, and may not be put in a frame (`server/static.ts` there), so the board has to come from the very
-address the web UI comes from. Changing the web UI's files is no way either: its updater builds each release from the
+own address only, and may not be put in a frame (`server/static.ts` there; Ovis 0.4.13 sends the same rules), so the
+board has to come from the very address the web UI comes from. Changing the web UI's files is no way either: its updater builds each release from the
 official code and wants a clean checkout, so a patch would be wiped by every update and could block updating.
 
 So the front door stands in front of it instead:
@@ -305,6 +350,8 @@ load online replaces the copy.
 ## When the web UI changes
 
 - **It updates itself**: nothing to do. The front door changes none of its files.
+- **It moves to its new plugin id** (Ovis's installer does that): the board finds it under the new one by itself, within
+  half a minute, and the front door follows ([its two names](#its-two-names)).
 - **It was redesigned and the sidebar's foot is gone**: a small floating **Board** button shows instead of the Boards
   section, and says once why. The board itself is unchanged.
 - **It gets an add-on slot of its own**: the front door can go. Until then, check these on a new version of the web UI:
@@ -316,7 +363,8 @@ load online replaces the copy.
   - its address parameters `ws`, `pane` and `view` (`src/lib/deepLink.ts`), and its `machine` address parameter;
   - `/api/health?scope=bridge` saying who asks, and that `/herdr-projects/` is still free;
   - what `/api/access` says about its link (`server/tailscale.ts`);
-  - `/api/machines` naming each PC's `id`, `kind`, `target` and `state`.
+  - `/api/machines` naming each PC's `id`, `kind`, `target` and `state`;
+  - its plugin id, its state folder, its paste folder and its settings record ([its two names](#its-two-names)).
 - **It changes its chat input**: the Board's box is measured against it again, with one command
   ([the web board's chat box](web-chat-box.md)).
 
@@ -386,3 +434,37 @@ UI's own restart and update (the script and the place it goes are the ones the B
 answered and one that refused), at a phone's size (390×844) and a desktop's (1280×800): All machines stood at the top of
 the Boards section and of the board's **Whose tasks to show**, and the machines under it kept their order. The terminal
 board was the same as before: it lists no boards, and `Alt+M` still goes this machine, every machine, then each other one.
+
+**Under its new name, Ovis**, checked on 2026-10-23 with Herdr 0.9.3: a scratch Herdr with Ovis's code under its new id
+(its main, `22104941`, `devswha.ovis` 0.4.13) and its release under the old id (0.4.13, `devswha.herdr-web-ui`), each
+with its own port; a board with two tasks, a real Coordinator and a real task's agent (Claude Code); the front door in
+front of it, in Chromium at a desktop's size (1280×800) and a phone's (390×844, touch):
+
+| What | Result |
+|---|---|
+| `herdr-projects web-ui`, the program before this change, Ovis installed | `not found: the plugin devswha.herdr-web-ui is not installed in herdr` |
+| `herdr-projects web-ui` now, Ovis only, then both listed | `found at http://127.0.0.1:17417 (devswha.ovis 0.4.13)` both times |
+| Ovis turned off in Herdr, the old id on | `found at … (devswha.herdr-web-ui 0.4.13)`; the front door followed it by itself within half a minute |
+| The Boards section | under Agents, above Install app and Settings, under both ids; on the phone (Ovis) folded as Agents is, with its dot |
+| A pick in it (Ovis at both sizes, the old id on the desktop) | the board opened over the page, docked on Ovis's own chat of the Coordinator, the Call button in its box; on the phone the drawer closed |
+| A message typed in Ovis's box while docked | went through the board to the Coordinator, which answered in that chat; Back closed the board and gave the page back |
+| A picture attached in Ovis's box, docked on the task's agent | kept in the task's worktree in `.ovis/`, which git leaves out (`!! .ovis/`); the box held its `@path` |
+| A browser whose settings were under the old key (Enter as a new line, 3 files at once) | Ovis moved them to `ovis:settings`; the board's box read Enter as a new line and 3 files at once there, and from `herdr-web-ui:settings` in front of the old id |
+
+Not checked: Ovis's installer moving a real install from the old id to the new one (both were linked by hand), and
+other machines under the new name (their PCs come from the same `/api/machines` as before).
+
+**Opening a task's agent whose space was closed** ([#356](https://github.com/eliasstravik/herdr-projects/issues/356)),
+checked on 2026-10-23 with Herdr 0.9.3: a scratch Herdr with Ovis 0.4.13 (its release, `devswha.herdr-web-ui`), the front
+door in front of it, a real task's agent (Claude Code) whose task was ready to approve, in Chromium at a desktop's size
+(1280×860):
+
+| What | Result |
+|---|---|
+| Open this task's agent, its space open | the page went to the agent's pane |
+| The same, its space closed, the program before this change | the space came back as a new workspace (`w3`) and the page was sent there at once; Ovis did not know it yet, put its address back to the pane it was on, and nothing said why |
+| The same now | the board waited for Ovis to list the new pane (about a second), and the page went there; done three times, each time a new workspace |
+| Ovis sent to a pane it never shows (the board's answer changed on its way to the page) | the address was written again three times, then put back; the Board came back with *The web UI (Ovis) did not go to “DEMO-1 Write f.txt with the word hello”…* |
+
+Not checked: another machine's task whose space was closed (the same wait, on that PC's list of panes: covered by tests),
+and Ovis's newest code, which handles that address the same way (`resolveLink`).

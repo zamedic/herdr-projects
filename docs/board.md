@@ -45,7 +45,7 @@ board shows and how many tasks stand in each group are on the filter row under i
 
 ## The filter row
 
-**`vm-str │ All 420   Coordinators 12   Needs you 0   Working 1   Ready 0   To do 4   Done 415   Automations 2`**,
+**`vm-str │ All 420   Coordinators 12   Needs you 0   Working 1   Ready 0   To do 4   Done 415   Automations 2   Pinned 3`**,
 each filter with its count, as in an agents command center, with plain room between them. The one shown is lit in its own colour, the one its rows and marks have: `Needs you` red,
 `Working` amber, `Ready` green, `Coordinators` the accent, `Automations` the automations' colour, the others plain, with
 a cell of the highlight on each side; every filter keeps that room, so the row does not move when another is lit. The
@@ -60,8 +60,9 @@ sidebar ([other machines](other-machines.md)); a click on it does the same. Ever
 | `All` | every task in its group and the automations, as always |
 | `Coordinators` | only the coordinators that run (started and not stopped: working, idle, needs you; on autopilot; or failed, so you can fix it): each such machine's row and project's row ([machine and project coordinators](machine-and-project-coordinators.md)). A stopped or never started one is not there, nor in the count; its row stays in the other filters, with no mark. The main Coordinator has no row |
 | `Needs you`, `Working`, `Ready`, `To do` | only the tasks of that group (`Ready` is ready to approve) |
-| `Done` | every done task, not only the latest five |
+| `Done` | every done task, which the other filters hide |
 | `Automations` | only the automations' rows, in their places |
+| `Pinned` | only what you pinned, in its places: a pinned task, a pinned project with its tasks, a pinned machine with its projects and tasks ([pins](pinned.md)). Its count is each pin once: the pinned machines, projects and tasks, not the other rows under them |
 
 - **`Tab` shows the next filter, `Shift+Tab` the one before**, round and round. A click on one shows it. The filter
   shown is kept with the board's view. Each filter keeps the grouping (`Alt+S`) and the headings of what it shows; a
@@ -94,10 +95,13 @@ Tasks stand in five groups, in the order they need you:
 
 - **First what waits for you**, then what is being worked on (the agent, the reviewer, the board's check), then to do,
   then done. Done is history, so it is last: however long it grows, it never pushes the to-dos down.
-- **A pinned task** stays on top, above all of them.
+- **A pinned task** (or project, or machine) stays where it is, with a yellow pin mark `★` after its name; the `Pinned`
+  filter shows only what is pinned ([pins](pinned.md)).
 - **Grouped by repo or by machine** (`Alt+S`), each repo's or machine's rows follow the same order, so a repo's done rows are below its to-dos.
-- **Only the latest five done tasks show.** The line under them counts the rest (`↓ 73 more done (alt+d shows them)`),
-  and `Alt+D` shows them all.
+- **No done task shows**, a pinned or a selected one neither. One line where they would stand counts them
+  (`↓ 73 done (alt+d shows them)`), and `Alt+D` shows them all. With none done, there is no such line. A project whose
+  tasks are all done shows its heading and that line. The selection on a done task that goes out of view (`Alt+D`
+  again) goes to the heading it stood under; while you talk to its agent or read it whole, it stays.
 - **Moving:** `↑` and `↓` follow the order shown; `PgUp` and `PgDn` go ten tasks at a time. Changing the grouping keeps
   the selected task selected.
 - **Headings:** the arrows stop on them too, and `Enter` on one folds it to one line, and unfolds it. With every machine
@@ -134,11 +138,21 @@ A project you are done with for now leaves the board whole, and comes back as it
   every task archived with it comes back as it was (to do is to do again, done is done; one that was stopped stays
   stopped until you start it), and its automations are on again. Its coordinator starts with your next message to it,
   as a stopped one does. A task you had archived on its own before stays in the archive.
+- **Another machine's project** goes the same way, from the board on every machine (`Alt+M`): `Ctrl+A` on its row
+  asks that machine to archive it, and that machine does it itself, so its coordinator stops and its automations go
+  off there. The question is the same (`Archive autopilot-tictactoe and its 3 tasks on vm-str?`), worked out from
+  that machine's tasks as the board last read them; that machine reads them again before it acts, and refuses one that
+  changed in a way that would have changed the question (a task of it works now where the board asked nothing, or it
+  holds more tasks than the board counted): `… changed on vm-str since your board read it: … Nothing was archived:
+  look again, then archive it.` In the archive its heading stands under its machine, and `Ctrl+A` there restores it.
+  A machine that cannot be reached changes nothing, and the board says so (`vm-str did not answer: …`); one on an older
+  version says to update it there first.
 - **From the shell:** `herdr-projects archive --repo mstars` (`Archived mstars and its 6 tasks. Stopped first:
   MST-4.`) and `herdr-projects restore --repo mstars` (`Restored mstars and its 6 tasks.`). They do not ask.
+  `--on vm-str` does it on another machine (`vm-str: Archived autopilot-tictactoe and its 3 tasks.`), as `add --on`
+  adds a task there.
 - The web board does the same: select the project's row, then **Archive** among its coordinator's buttons (Open) or in
-  More…; in the archive its row, selected, has **Restore this project** under it. Only this machine's projects:
-  another machine's are archived there.
+  More…; in the archive its row, selected, has **Restore this project** under it. Another machine's projects too.
 
 ### The list says what it hides
 
@@ -149,15 +163,13 @@ the screen with nothing under it. (A list of fewer than eight lines keeps every 
 
 ### A list taller than the window
 
-1. **The done rows give way first.** The list shows the latest five, and when it still does not fit, one fewer for each
-   line it is short, down to the newest one. The line under them says how many more there are, and `?` has the key that
-   shows them all.
-2. **Then the to-dos**, from the last one up, down to the first, with a line under them that counts the rest
+1. **The done rows take no room**: the list shows none of them, only the line that counts them (see above).
+2. **The to-dos give way**, from the last one up, down to the first, with a line under them that counts the rest
    (`… 4 more to do`).
 
 So the live tasks, the ones that need your eye, stay on screen, also on a phone where each takes three to five lines.
 
-- The selected task is never folded away, and nothing is while you search or have asked for all done.
+- Nothing is folded away while you search or have asked for all done; the selected to-do never gives way.
 - A to-do that gave way is still one `↓` away: the arrows go through every to-do, and the ones that show are then those
   that end at the selected task.
 - To-dos give way only on a list that has live tasks. With none, the list just scrolls, with no line spent on a count.
@@ -174,7 +186,7 @@ Each state has a mark of its own, so no two are told apart by colour alone:
 | `◐` | the agent is working |
 | `◑` | the reviewer is working |
 | `◇` | the board's own step |
-| `◌` | queued: it waits for a free slot, or for the tasks it is tabbed to start after ([one task after another](after.md)) |
+| `◷` | queued (a clock, in magenta): it waits for a free slot, or for the tasks it is tabbed to start after ([one task after another](after.md)) |
 | `✗` | went wrong |
 | `◆` | ready to approve |
 | `✓` | done |
@@ -184,13 +196,13 @@ The `?` menu has the list too.
 
 - **A machine's row and a project's row** (and `All machines`) carry their coordinator's state with these same marks:
   `○` idle (also never ran, or stopped), `◐` it works, `?` it asks you (`!` it wants your OK), `✗` it could not start.
-  On [autopilot](autopilot.md) it keeps that mark, with `[autopilot]` after its name. The others (`◑ ◆ ✓ ◌ ◇`) are never a coordinator's
+  On [autopilot](autopilot.md) it keeps that mark, with `[autopilot]` after its name. The others (`◑ ◆ ✓ ◷ ◇`) are never a coordinator's
   ([machine and project coordinators](machine-and-project-coordinators.md)).
 
 - **Only a moon says someone works**: `◐` and `◑`, an agent or its reviewer.
 - Every mark is one column wide, and a character every monospace font has. The web board draws the same ones.
 - Herdr's `status_indicators = "dots"` brings its dots back for working (the agent's and the reviewer's) and done. The
-  board's `◇`, the `◌` of a wait for a slot, and what a waiting task needs keep their marks with dots too, since no dot
+  board's `◇`, the `◷` of a wait for a slot, and what a waiting task needs keep their marks with dots too, since no dot
   means those.
 
 ### A task that needs you
@@ -263,7 +275,9 @@ is on it, or it waits for you.
   came out, with a short tally (`Pass · 2 minor`, `Review failed · 1 critical, 1 major`, the result in its own colour); or
   what it waits for. While the reviewer works, it says only what the reviewer is doing.
 - Line 2 is in the brighter of the board's two greys, Herdr's `subtext0`, because it must be read (the fainter one,
-  `overlay0`, is for what may be missed: times, counts, tags). What a task asks of you is in the plain text colour.
+  `overlay0`, is for what may be missed: times, counts, tags). What a task asks of you (its question, the OK it wants,
+  the login it needs: a `?`, `!` or `@` row) is in its mark's needs-you colour, Herdr's `red`, so it stands out as the
+  mark does; on the selected row too, and on the web board in its needs-you colour.
 - In the all-machines view the machine is the heading above its tasks, never in a row
   ([list headings](list-headings.md)), so line 2 starts under the task's name as everywhere.
 - Line 2 has the row's whole width, so it is rarely cut. One longer than the window is cut at its end with `…`, never
@@ -290,10 +304,10 @@ Herdr's and which the board's, and how the board follows Herdr's theme: [colours
 - **The board's own steps** are no moon but a `◇`: starting, setting up, running the check, pushing and merging, and the
   waits on the way: for the check's turn, for its turn to merge, and for GitHub's checks on its pull request
   (`Waiting for GitHub checks · 2 of 3 passed`).
-- **A task waiting for a free slot** has an empty, dotted ring, `◌`, in the dim grey of to do ([below](#a-task-that-waits-for-a-free-slot)).
+- **A task waiting for a free slot** has a clock, `◷`, in a magenta no other state has ([below](#a-task-that-waits-for-a-free-slot)).
 - **An agent or reviewer whose turn was cut off**, waiting to try again, keeps its moon: it is still the one on the task.
-- So: a blue `◑` with a bar is a running review, an amber `◐` the agent at work, a `◇` the board on it, a grey `◌` not
-  started yet, and a green `◆` ready for your yes.
+- So: a blue `◑` with a bar is a running review, an amber `◐` the agent at work, a `◇` the board on it, a magenta `◷` waiting
+  for its turn, and a green `◆` ready for your yes.
 - **A group's heading keeps its group's colour**: a task under review is filed under `working`.
 - **To do** (its heading and its `○`) is a dim grey of its own, never the plain text colour, and always readable: every
   grey on the board is held to a floor of contrast with the background.
@@ -335,16 +349,16 @@ background ([colours](colours.md)). The time of a task that is not done is drawn
 ## A task that waits for a free slot
 
 At most `board.agents` agents work at once. A task started while every slot is taken waits its turn: its row has the
-mark `◌` in the dim grey of to do, says `Waiting for a free slot` on its second line, and shows its place in the queue where a working
+mark `◷` (a clock) in magenta, says `Waiting for a free slot` on its second line, and shows its place in the queue where a working
 task has its percent: `Q#1` gets the next free slot, `Q#2` the one after.
 
 ```
  working
  ◐ HSW-151 Rewrite the board in Rust on Ratatui           █████░░░  65%  3m       9m
            Reading the list code
- ◌ HSW-152 Show automations in the main list                         Q#1           2m
+ ◷ HSW-152 Show automations in the main list                         Q#1           2m
         Waiting for a free slot
- ◌ #153 Fix the footer                                               Q#2          40s
+ ◷ #153 Fix the footer                                               Q#2          40s
         Waiting for a free slot
 ```
 
@@ -354,7 +368,7 @@ task has its percent: `Q#1` gets the next free slot, `Q#2` the one after.
   by themselves, so `working` is where they belong. A heading of their own would hold one or two rows for a minute and
   move them under another heading each time a slot frees. Their mark, colour and `Q#` tell them from the tasks at work,
   and the order says which is next. (Grouped by repo there is no status heading: they stand among their repo's tasks.)
-- **The same place is said everywhere**: the task panel's State line (`◌ waiting for a free slot, Q#2`), `list`
+- **The same place is said everywhere**: the task panel's State line (`◷ waiting for a free slot, Q#2`), `list`
   (`· waiting for a free slot, Q#2`; `--json` has `queue: 2`), `details` (`queue: { place, words }`), the message when you
   start it, Herdr's sidebar ([sidebar](sidebar.md)) and the web Board.
 - **A narrow board** keeps it too: there `Q#2` stands with the time at the end of the row's second line, so a waiting

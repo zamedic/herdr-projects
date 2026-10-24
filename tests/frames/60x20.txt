@@ -71,12 +71,12 @@
                 task: a page of its text)
    tab          the next filter on top: all, coordinators,
                 needs you, working, ready, to do, done,
-                automations
+                automations, pinned
    enter        send what is typed; else fold or unfold a
                 heading
    space        talk to this row's agent, and back to the
                 top row's coordinator
- ↓ 67 more
+ ↓ 68 more
 
 ────────────────────────────────────────────────────────────
 ❯ Add a task

@@ -21,7 +21,9 @@ fn a_rows_tag_has_a_column_of_its_own_and_a_narrow_list_drops_every_tag_at_once(
     assert!(LIST.contains(r#"${r.automation ? " is-automation" : ""}"#));
     // what follows a title ([auto], [research], ×3) is dimmed, never in a colour; an automation's mark is an arrow going
     // round, drawn at the round marks' size, the same one quiet while it is off
-    assert!(LIST.contains(r#"h("span.sw-count", r.title.slice(at))"#) && !LIST.contains(r#"h("span.sw-c-auto", "[auto]")"#));
+    assert!(LIST.contains(r#"h("span.sw-count", t.slice(at))"#) && !LIST.contains(r#"h("span.sw-c-auto", "[auto]")"#));
+    // the pin mark last is a yellow star, apart from the dimmed tags
+    assert!(LIST.contains(r#"const PIN = " ★";"#) && LIST.contains(r#"h("span.sw-pin", PIN.trim())"#) && has(CSS, r"\.sw-pin \{ color: var\(--sw-yellow\); \}"));
     assert!(DOM.contains(r#"mark === TURN ? h("span.sw-turn")"#) && DOM.contains(r#"${dim ? ".sw-d" : ""}"#) && DOM.contains(r#"span.sw-mark${color ? `.sw-c-${color}` : ""}"#));
     for part in [r"\.sw-main \{ display: grid; grid-template-columns: auto minmax\(0, 1fr\)", r"\.sw-main > \* \{ grid-column: 2; \}", r"\.sw-no-tags \.sw-main > \.sw-id \{ display: none; \}",
         r"\.sw-word \{ display: none; \} \.sw-no-tags \.sw-word \{ display: inline; \}", r"\.sw-c-auto \{ color: var\(--sw-auto\); \}", r"--sw-auto: color-mix\(in srgb, #a855f7 78%"] { assert!(has(CSS, part), "{part}"); }
@@ -57,7 +59,7 @@ fn the_chat_line_shows_only_what_there_is_and_the_boxs_frame_says_who_gets_the_w
 fn the_pages_styles_nothing_under_13px_targets_a_thumb_can_hit_and_a_draft_kept_with_who_it_is_for() {
     assert!(CSS.contains("--fs-2xs: 13px; --fs-xs: 13px;")); assert!(!CSS.contains("text-transform: uppercase"));
     assert!(!has(CSS, r"min-height: (2\d|3\d)px"), "no tap target under 40px");
-    for part in ["full", "right", "dotted"] { assert!(CSS.contains(&format!(".sw-dot-{part} {{")), "{part}"); }
+    for part in ["full", "right", "clock"] { assert!(CSS.contains(&format!(".sw-dot-{part} {{")), "{part}"); }
     assert!(CSS.contains(".sw-board.has-task .sw-back { display: none; }"), "one back arrow at a time on a phone");
     // the chat full screen hides the header with the open task and their arrows: the full screen button, in its place,
     // goes back then (chat.js), so there is always a way back

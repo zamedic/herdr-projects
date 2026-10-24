@@ -12,7 +12,8 @@ too, and with `NO_COLOR` the board still reads.
 | green | ready to approve |
 | blue | under review |
 | teal | done |
-| dim grey | to do, and queued: waits for a free slot, or for other tasks (its own mark, `◌`) |
+| dim grey | to do |
+| magenta | queued: waits for a free slot, or for other tasks (its own mark, a clock, `◷`) |
 | light grey | the board runs its own check |
 | purple | an automation |
 | the base colour | every name: a machine's, a project's, a task's title |
@@ -47,7 +48,7 @@ theme's dark or light one), or one of Herdr's themes by name: `catppuccin`, `cat
   `board.theme` to that theme's name (`herdr-projects set board.theme nord`), or give both machines the same `[theme]`.
   A plain `ssh` to this machine with Herdr started here is not this case: client and server are on one machine, and the
   board matches.
-- **The web Board.** The Herdr web UI does not read Herdr's theme; it has colours of its own (its CSS variables, light and
+- **The web Board.** The web UI (Ovis) does not read Herdr's theme; it has colours of its own (its CSS variables, light and
   dark and its palettes). The Board there uses those, so it matches what Herdr looks like on the web, not in a terminal
   ([the board in the web UI](web-ui.md)).
 
@@ -63,7 +64,8 @@ The board has colours of its own only for what Herdr has no state for:
 |---|---|---|
 | under review | blue | the theme's `blue` where that is told apart from all it sits beside, else the board's `#3b82f6` ([the board](board.md)) |
 | ready to approve | green | the theme's `green` |
-| to do, and queued | dim grey | the theme's grey for greyed-out words (`overlay0`), made readable as said below, where that is told apart from the green and the blue; else another grey. With the terminal's own colours it is a grey mixed from the terminal's own background and text colour, measured ([below](#a-queued-task-is-grey)) |
+| to do | dim grey | the theme's grey for greyed-out words (`overlay0`), made readable as said below, where that is told apart from the green and the blue; else another grey. With the terminal's own colours it is a grey mixed from the terminal's own background and text colour, measured |
+| queued | magenta | one of the board's own magentas, the first told apart from every status colour, the automations' purple, the greys, text and background, and seen on the ground: `#e056fd` with Herdr's default theme, `#d946ef` with the terminal's own colours ([below](#a-queued-task-is-magenta)) |
 
 - They are told apart from each other in every built-in theme (the tests measure it).
 - "To do" is a dim grey in the list (the heading, the `○` mark, the task's number) and in the box alike: dimmer than plain
@@ -71,16 +73,16 @@ The board has colours of its own only for what Herdr has no state for:
 - While the board runs its own check, the mark is a plain light grey, the theme's `subtext0`
   ([the check's progress](check-progress.md)).
 
-## A queued task is grey
+## A queued task is magenta
 
-A queued task is calm: nothing is wrong and nobody needs to act. A task started while every slot of `board.agents` is
-taken, or tabbed with `--after` while the tasks it waits for are not all done ([one task after another](after.md)), has
-the dim grey of "to do" for its `◌`, its place in the queue (`Q#2`), the State line in the task panel and its agent's
-text box. Its row's second line, `Waiting for a free slot` or `Queued after SKL-6`, is the same quiet grey as any other
+A queued task has a colour no other state uses: magenta, the purple between the automations' violet and red. A task
+started while every slot of `board.agents` is taken, or tabbed with `--after` while the tasks it waits for are not all
+done ([one task after another](after.md)), has it for its clock `◷`, its place in the queue (`Q#2`), the State line in
+the task panel and its agent's text box. Its row's second line, `Waiting for a free slot` or `Queued after SKL-6`, is the same quiet grey as any other
 task's line, and is cut where any other line is. A task that only waits for others, never tabbed, stays "to do", and its
 row says nothing of the wait.
 
-**Colour is not the only clue**: the `◌` is a dotted ring no other state has (to do is the plain `○`), and `Q#2`,
+**Colour is not the only clue**: the `◷` is a clock no other state has, one column wide (to do is the plain `○`), and `Q#2`,
 `Waiting for a free slot` and `Queued after SKL-6` are words. With `NO_COLOR` they still say it. The web Board shows it
 the same way.
 
@@ -123,7 +125,7 @@ as the board's own words stand under `Board`, in the same greys. With `NO_COLOR`
 
 The board has three greys:
 
-- the one for greyed-out words: a task's number, a time, a count in the header, "… more done", the words between two
+- the one for greyed-out words: a task's number, a time, a count in the header, "↓ 3 done", the words between two
   hints, a label;
 - a brighter one for words that must be read: what a row says, the keys on the hint line;
 - the dim grey of "to do".
@@ -181,7 +183,7 @@ cannot be measured.
 
 The web Board uses the web UI's own colours. Its "to do" and its greyed-out words are the web UI's dim text
 (`--text-dim`), which is 4.5 to 1 or more against the page, its panels and a hovered row on every palette of the web UI
-(measured on herdr-web-ui 0.4.8: 4.5 to 9.9). The board's own teal for done is 3.6 to 1 or more there.
+(measured on herdr-web-ui 0.4.8, Ovis before its rename: 4.5 to 9.9). The board's own teal for done is 3.6 to 1 or more there.
 
 The rules below hold there too: names in the base colour, the hierarchy by weight and how far in a row stands, the
 filter row's lit filter in its own colour (on a tint of it, as the web UI marks a status), and the chat's frame and the

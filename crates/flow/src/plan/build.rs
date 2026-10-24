@@ -116,7 +116,8 @@ pub fn start_build_by(id: &str, g: &mut Guard, by: &str) -> Res<()> {
             t = g.set(|t| { t.put("stage", "working"); t.put("armedAt", now()); t.put("expectedWake", Value::Null); t.put("turnOpen", true); t.put("turnBy", "start"); t.put("msg", ""); t.put("watch", Value::Null); t.del("kind"); })?;
             flow::send::deliver(&t, &flow::send::with_tail(&t, &words), None, false)?;
         } else {
-            // In its own plan mode, or in the read-only mount: neither ends by itself. Ended, and started again.
+            // In the read-only mount (or, started by an older board, in Claude Code's own plan mode): neither ends by
+            // itself. Ended, and started again.
             if a.is_some() && !api.pane_quit(t.at("link").s("pane"), 6000) { crate::fail!("The agent's program could not be ended to leave its plan step. Close its terminal, then retry."); }
             if resumable(&t) { start_agent(id, g, &flow::send::with_tail(&t, &words), Some(t.s("session")))?; }
             else { start_agent(id, g, &std::iter::once(first_prompt(&t)).chain(waiting.iter().cloned()).collect::<Vec<_>>().join("\n\n"), None)?; }
@@ -132,7 +133,7 @@ pub fn start_build_by(id: &str, g: &mut Guard, by: &str) -> Res<()> {
 /// of its own. The worktree, the branch and the tab the plan was written in are attempt A's.
 fn fan_out(g: &mut Guard, agents: &[String]) -> Res<Task> {
     let t = g.check()?;
-    let place: Obj = ["worktree", "branch", "from", "baseSha", "repoFile", "repoRefused", "root", "ownNote"].iter().filter(|k| t.contains_key(**k)).map(|k| (k.to_string(), t.at(k).clone())).collect();
+    let place: Obj = ["worktree", "branch", "from", "fromNamed", "baseSha", "repoFile", "repoRefused", "root", "ownNote"].iter().filter(|k| t.contains_key(**k)).map(|k| (k.to_string(), t.at(k).clone())).collect();
     let l = t.at("link").clone();
     let mut made = vec![];
     for (n, agent) in agents.iter().enumerate() {
@@ -151,7 +152,7 @@ fn fan_out(g: &mut Guard, agents: &[String]) -> Res<Task> {
         let s = t.at("link").at("socket").clone(); let w = t.at("link").at("workspace").clone();
         t.put("link", json!({ "socket": s, "workspace": w, "ownsWorkspace": true }));
         let p = t.obj_mut("plan"); p.put("built", now()); p.put("locked", false); p.del("ignored");
-        for k in FORGET.iter().chain(["worktree", "branch", "from", "baseSha", "startedOnce"].iter()) { t.del(k); }
+        for k in FORGET.iter().chain(["worktree", "branch", "from", "fromNamed", "baseSha", "startedOnce"].iter()) { t.del(k); }
     })?;
     flow::sidebar::tell_sidebar(&t);
     Ok(t)

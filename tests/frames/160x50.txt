@@ -1,6 +1,6 @@
 == the list
  herdr-projects  proj
- All 18   Coordinators 0   Needs you 5   Working 9   Ready 1   To do 2   Done 1   Automations 0
+ All 18   Coordinators 0   Needs you 5   Working 9   Ready 1   To do 2   Done 1   Automations 0   Pinned 0
  ▾ this machine  1 project · 18 tasks
    ▾ needs you
    ? #9     Max length for task titles                                                                                                                    1m ago
@@ -33,13 +33,13 @@
             Reading the logs
    ◐ #18    日本語のタイトルはとても長いので二倍の幅になります 🚀🚀 and then some more                            ░░░░░░░░   5%                           1m
             幅の広い文字 🎉 の行
-   ◌ #3     Max length for task titles                                                                                      Q#2                           1m
+   ◷ #3     Max length for task titles                                                                                      Q#2                           1m
             Waiting for a free slot
    ▾ to do
    ○ #1     Max length for task titles                                                                                                                    1m ago
    ○ #19    TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT                                                                                  1m ago
    ▾ done
-   ✓ #15    Max length for task titles                                                                                                    R#1 PR#60       1m ago
+     ↓ 1 done (alt+d shows them)
 
 
 
@@ -51,7 +51,7 @@
   alt+o open this task's agent · space talk to the agent · ctrl+x stop the agent · ? all keys
 == the task beside it
  herdr-projects  proj                                                                             │
- All 18   Coordinators 0   Needs you 5   Working 9   Ready 1   To do 2   Done 1   Automations 0   │  #5 Max length for task titles
+ All 18   Coords 0   Needs 5   Working 9   Ready 1   To do 2   Done 1   Autos 0   Pinned 0        │  #5 Max length for task titles
  ▾ this machine  1 project · 18 tasks                                                             │
    ▾ needs you                                                                                    │  Status ───────────────────────────────────────────────────
    ? #9     Max length for task titles                                                         1m │  State        ◐ working · for 1m
@@ -84,13 +84,13 @@
             Reading the logs                                                                      │
    ◐ #18    日本語のタイトルはとても長いので二倍の幅になりま…     5%                           1m │
             幅の広い文字 🎉 の行                                                                  │
-   ◌ #3     Max length for task titles                           Q#2                           1m │
+   ◷ #3     Max length for task titles                           Q#2                           1m │
             Waiting for a free slot                                                               │
    ▾ to do                                                                                        │
    ○ #1     Max length for task titles                                                         1m │
    ○ #19    TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT                       1m │
    ▾ done                                                                                         │
-   ✓ #15    Max length for task titles                                         R#1 PR#60       1m │
+     ↓ 1 done (alt+d shows them)                                                                  │
                                                                                                   │
                                                                                                   │
                                                                                                   │
@@ -157,7 +157,7 @@
    ↑ ↓          move between tasks and headings
    ← →          fold the heading; on a task's row, go to its heading
    pgup pgdn    a page of tasks up or down (in the whole task: a page of its text)
-   tab          the next filter on top: all, coordinators, needs you, working, ready, to do, done, automations
+   tab          the next filter on top: all, coordinators, needs you, working, ready, to do, done, automations, pinned
    enter        send what is typed; else fold or unfold a heading
    space        talk to this row's agent, and back to the top row's coordinator
    esc          back, one step at a time (as a popup, the board closes on the last one)
@@ -171,7 +171,7 @@
    ctrl+s       put an agent on this task
    ctrl+x       stop this task's agent
    ctrl+a       archive this task
-   ctrl+p       pin this task to the top
+   ctrl+p       pin this task: a mark on its row, and under Pinned
    ctrl+e       this task's settings: see and change each one
                 your own settings: what every task starts from
    ctrl+z       undo
@@ -194,7 +194,7 @@
    ◐            an agent works
    ◑            its reviewer works
    ◇            the board's own step (it checks, waits for GitHub, merges)
-   ◌            queued: for a free slot (Q#1 next) or after other tasks
+   ◷            queued: for a free slot (Q#1 next) or after other tasks
    ?            asks you
  ↓ 13 more
 
@@ -204,7 +204,7 @@
   ↑↓ pick a key · enter press it · esc close the menu
 == a draft
  herdr-projects  proj
- All 18   Coordinators 0   Needs you 5   Working 9   Ready 1   To do 2   Done 1   Automations 0
+ All 18   Coordinators 0   Needs you 5   Working 9   Ready 1   To do 2   Done 1   Automations 0   Pinned 0
  ▾ this machine  1 project · 18 tasks
    ▾ needs you
    ? #9     Max length for task titles                                                                                                                    1m ago
@@ -237,13 +237,13 @@
             Reading the logs
    ◐ #18    日本語のタイトルはとても長いので二倍の幅になります 🚀🚀 and then some more                            ░░░░░░░░   5%                           1m
             幅の広い文字 🎉 の行
-   ◌ #3     Max length for task titles                                                                                      Q#2                           1m
+   ◷ #3     Max length for task titles                                                                                      Q#2                           1m
             Waiting for a free slot
    ▾ to do
    ○ #1     Max length for task titles                                                                                                                    1m ago
    ○ #19    TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT                                                                                  1m ago
    ▾ done
-   ✓ #15    Max length for task titles                                                                                                    R#1 PR#60       1m ago
+     ↓ 1 done (alt+d shows them)
 
 
 
