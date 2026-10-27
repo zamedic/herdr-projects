@@ -50,7 +50,10 @@ pub fn nothing_to_land(t: &Task, tree: &Path, own: bool, ask: bool, before: &str
         Some(p) => (format!("Already merged in {}", crate::azure::numbered(p.s("url"), &p.t("number"))), Some(p)),
         None if own => {
             let base = crate::sync::main_branch(&crate::store::repos::folder_of(t.s("id")), t);
-            let direct = crate::azure::host(tree).and_then(|_| landed_at(tree, before, &base)).map(|c| json!({ "direct": true, "mergeCommit": { "oid": c }, "baseRefName": base }));
+            // Not there as it is (cherry-picked, or squashed onto main while the branch keeps its own commit): main as it
+            // is now holds it, so the run of its tip is the one that deploys it.
+            let at = || landed_at(tree, before, &base).or_else(|| git_out(tree, &["rev-parse", "--verify", "-q", &format!("refs/remotes/origin/{base}^{{commit}}")]).ok().filter(|c| !c.is_empty()));
+            let direct = crate::azure::host(tree).and_then(|_| at()).map(|c| json!({ "direct": true, "mergeCommit": { "oid": c }, "baseRefName": base }));
             (format!("Already on {}", crate::sync::main_word(t)), direct)
         }
         None => ("No change needed".into(), None),

@@ -61,7 +61,8 @@ login is said: `Could not open the pull request`, with what az said and what to 
   what brought it to main.
 - **Pushed to main by the agent itself**: `Already on main`, and not done yet either: the task waits for the main
   pipeline of the commit that brought the work there (`On main: bdb73e8. Waiting for the main pipeline to start`): the
-  agent's own commit when it was pushed as it is, else the first commit of main's line that holds it.
+  agent's own commit when it was pushed as it is, else the first commit of main's line that holds it; when main holds
+  its changes as another commit (cherry-picked, or squashed there while the branch keeps its own), main's tip.
 - **Feedback**: what you write on it (as the user `az` is logged in as) wakes the agent, as on GitHub. The board's own
   review comment is a thread closed at once, so it never holds up a policy of resolved comments.
 

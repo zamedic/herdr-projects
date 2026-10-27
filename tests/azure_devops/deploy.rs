@@ -1,8 +1,11 @@
 //! The deploy of a task's own commit on Azure DevOps (land/main_pipeline.rs), as RPR-24 and RPR-20 met it: only the
 //! main pipeline's run of the task's own merge commit counts, never an older run of the same pipeline that passed
 //! already; work the agent pushed to main itself (`Already on main`) waits for the run of the commit that brought it
-//! there, the same way; the task stays in its stage "merging" through the stages and their approvals, and is done only
-//! once the last stage passed. An approval rejected there waits for you with the reason.
+//! there, the same way (squashed onto main: the run of main's tip); the task stays in its stage "merging" through the
+//! stages and their approvals, and is done only once the last stage passed. An approval rejected there waits for you
+//! with the reason. A pull request that named another merge commit at first (its trial merge) is read again, never
+//! taken for one no pipeline ran for. RPR-24's own record (the right merge commit, done after its run passed) fits a
+//! correct wait: its test holds what already worked.
 use crate::common;
 use common::az::run;
 use common::*;
@@ -143,4 +146,43 @@ fn a_stage_approval_rejected_in_azure_devops_waits_for_you_with_the_reason() {
     w.az_says(json!({ "head": head, "status": "completed", "runs": [reports(6, &merge_commit(), "completed", "succeeded")] }));
     finish_line::retry(&id).unwrap();
     assert_eq!(settle(&id).s("stage"), "done");
+}
+
+#[test]
+fn work_squashed_onto_main_by_the_agent_waits_for_the_run_of_mains_tip() {
+    let w = az_world(json!({}));
+    let squash = json!([["fetch", "-q", "origin", "main"], ["checkout", "-q", "--detach", "FETCH_HEAD"], ["merge", "-q", "--squash", "@{-1}"],
+        ["-c", "user.email=agent@test", "-c", "user.name=agent", "commit", "-qm", "Squashed"], ["push", "-q", "origin", "HEAD:main"], ["checkout", "-q", "-"]]);
+    w.script(json!({ "worker": [{ "files": { "f.txt": "v1\n" }, "commit": "v1", "note": "Squashed it onto main.", "git": squash }] }));
+    let id = w.add("Squashed by hand");
+    delegate(&id);
+    let t = settle(&id);
+    let tip = git(&w.root, &["rev-parse", "refs/remotes/origin/main"]);
+    assert_eq!(t.s("doneWhy"), "Already on main");
+    assert_eq!((t.s("stage"), t.at("pipelineWait").s("commit")), ("merging", tip.as_str()), "{} {}", t.s("msg"), t.at("failure"));
+}
+
+#[test]
+fn a_pull_request_that_named_another_merge_commit_at_first_is_read_again_and_its_real_one_waited_for() {
+    let w = az_world(json!({}));
+    let id = to_approval(&w, "Trial merge first");
+    let head = git(Path::new(task(&id).s("worktree")), &["rev-parse", "HEAD"]);
+    // completed, Azure DevOps still names its trial merge as the merge commit
+    let trial = "7".repeat(40);
+    w.az_says(json!({ "head": head, "merge": trial, "runs": [older()] }));
+    finish_line::approve(&id, None, false).unwrap();
+    assert_eq!(settle(&id).at("pipelineWait").s("commit"), trial);
+    // read again: the real one, whose run waits at Staging's approval
+    w.az_says(json!({ "head": head, "runs": [reports(5, &merge_commit(), "inProgress", ""), older()], "timeline": { "5": reports_run("pending", "") } }));
+    poll_prs();
+    let t = settle(&id);
+    assert_eq!((t.at("pipelineWait").s("commit"), t.s("mergeCommit")), (merge_commit().as_str(), merge_commit().as_str()));
+    poll_prs();
+    assert_eq!(settle(&id).s("msg"), format!("Main pipeline reports waits for your approval of stage Staging in Azure DevOps: {RUN}"));
+    // past the grace for a commit no pipeline ran for: still not done, its run is under way
+    sw::clock::advance(11 * 60000);
+    poll_prs();
+    let t = settle(&id);
+    assert_eq!(t.s("stage"), "merging", "{}", t.s("msg"));
+    assert!(!shown_done(&id));
 }
