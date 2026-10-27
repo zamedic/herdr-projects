@@ -37,18 +37,50 @@ pub fn made_commits(tree: &Path, base: &str, before: &str, prev_main: &str) -> b
     git_out(tree, &args).ok().and_then(|n| n.parse::<i64>().ok()).unwrap_or(0) > 0
 }
 /// Why the task is done without a pull request, when its branch brings main nothing: main (brought in just before) has
-/// everything on it. `ask`: GitHub may be asked for a pull request of the branch that was merged. None: there is work
-/// to land. With it, the pull request it was merged in (gh's shape), when the agent merged its own: on Azure DevOps
-/// the task waits for that merge commit's main pipeline (pipeline_end.rs).
-pub fn nothing_to_land(t: &Task, tree: &Path, own: bool, ask: bool) -> Option<(String, Option<Value>)> {
+/// everything on it. `ask`: GitHub may be asked for a pull request of the branch that was merged. `before`: where the
+/// branch stood before main was brought in. None: there is work to land. With it, the pull request it was merged in
+/// (gh's shape), when the agent merged its own; on Azure DevOps, when the agent pushed it to main itself,
+/// `{ direct, mergeCommit, baseRefName }`: the commit that brought it there. Either way the task then waits for that
+/// commit's main pipeline (pipeline_end.rs).
+pub fn nothing_to_land(t: &Task, tree: &Path, own: bool, ask: bool, before: &str) -> Option<(String, Option<Value>)> {
     let ch = change_of(t)?;
     if !ch.s("stat").is_empty() { return None; }
-    let merged = if ask { prs_of(t.s("branch"), tree).into_iter().find(|p| p.s("state") == "MERGED") } else { None };
+    let merged = if ask { prs_of(t.s("branch"), tree).into_iter().find(|p| p.s("state") == "MERGED" && holds(tree, p, before)) } else { None };
     Some(match merged {
         Some(p) => (format!("Already merged in {}", crate::azure::numbered(p.s("url"), &p.t("number"))), Some(p)),
-        None if own => (format!("Already on {}", crate::sync::main_word(t)), None),
+        None if own => {
+            let base = crate::sync::main_branch(&crate::store::repos::folder_of(t.s("id")), t);
+            let direct = crate::azure::host(tree).and_then(|_| landed_at(tree, before, &base)).map(|c| json!({ "direct": true, "mergeCommit": { "oid": c }, "baseRefName": base }));
+            (format!("Already on {}", crate::sync::main_word(t)), direct)
+        }
         None => ("No change needed".into(), None),
     })
+}
+/// Whether a merged pull request of the branch is what brought the work at `before`: its last commit has it. One merged
+/// before the work was done is not, and neither is its merge commit (nor that commit's pipeline run). Its last commit
+/// unknown here (not said, or not fetched): taken as it is.
+fn holds(tree: &Path, p: &Value, before: &str) -> bool {
+    let head = p.s("headRefOid");
+    if head.is_empty() || before.is_empty() || head == before || git_out(tree, &["cat-file", "-e", &format!("{head}^{{commit}}")]).is_err() { return true; }
+    git_out(tree, &["merge-base", "--is-ancestor", before, head]).is_ok()
+}
+/// The commit by which work at `head` came onto `base` at the remote: `head` itself when it is on the branch's line of
+/// first parents (it was pushed there as it is: the commit its pipeline runs for), else the oldest commit of that line
+/// that holds it (a merge of it made on main). None when the remote's `base` does not hold it.
+pub fn landed_at(tree: &Path, head: &str, base: &str) -> Option<String> {
+    let main = format!("refs/remotes/origin/{base}");
+    let head = git_out(tree, &["rev-parse", "--verify", "-q", &format!("{head}^{{commit}}")]).ok().filter(|h| !h.is_empty())?;
+    git_out(tree, &["merge-base", "--is-ancestor", &head, &main]).ok()?;
+    let line = git_out(tree, &["rev-list", "--first-parent", "-n", "1000", &main]).ok()?;
+    let after = git_out(tree, &["rev-list", "--ancestry-path", &format!("{head}..{main}")]).unwrap_or_default();
+    let after: Vec<&str> = after.lines().collect();
+    let mut at = None;
+    for c in line.lines() {
+        if c == head { return Some(head); }
+        if !after.contains(&c) { break; }
+        at = Some(c.to_string());
+    }
+    at
 }
 /// The repo is archived on GitHub: read-only, nothing can be pushed to it or merged.
 pub fn archived(cwd: &Path) -> bool {
