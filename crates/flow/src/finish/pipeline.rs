@@ -168,7 +168,7 @@ pub fn pipeline(id: &str, g: &mut Guard, text: &str, keep_intent: bool, reason: 
     let landed = if tree.is_empty() || research { None } else {
         let before = sync_r.map(|r| if r.status == "merged" { r.before.clone() } else { r.head.clone() }).filter(|h| !h.is_empty()).unwrap_or_else(|| flow::git::head_of(Path::new(&tree)));
         let base = [t.s("baseSha"), t.s("from")].into_iter().find(|s| !s.is_empty()).unwrap_or("HEAD").to_string();
-        already::nothing_to_land(&t, Path::new(&tree), already::made_commits(Path::new(&tree), &base, &before, &prev_main), ask)
+        already::nothing_to_land(&t, Path::new(&tree), already::made_commits(Path::new(&tree), &base, &before, &prev_main), ask, &before)
     };
     let (why, own) = match landed { Some((w, p)) => (Some(w), p), None => (None, None) };
     t = g.set(|t| { t.put("doneWhy", why.clone().map(Value::from).unwrap_or(Value::Null)); t.put("ownMerge", own.clone().unwrap_or(Value::Null)); })?;

@@ -21,7 +21,8 @@ pub fn poll_prs() {
     // Merged on Azure DevOps, waiting for the base branch's pipeline: looked at on the same cadence.
     crate::land::main_pipeline::pass(&list(ListOpts::default()));
     for first in list(ListOpts::default()) {
-        if !first.b("pr") || first.b("prMerged") || runner_alive(&first) || (first.s("stage") == "working" && !first.b("autoMerge")) || needs_login(&first) { continue; }
+        // Waiting for its main pipeline (pushed to main itself, its pull request maybe still open): looked at above only.
+        if !first.b("pr") || first.b("prMerged") || first.b("pipelineWait") || runner_alive(&first) || (first.s("stage") == "working" && !first.b("autoMerge")) || needs_login(&first) { continue; }
         // Its checks as the token can read them (land/readable.rs): a fine-grained token cannot read GitHub's list.
         match readable::pr_view(&folder_of(first.s("id")), first.s("pr"), "state,reviewDecision,author,comments,reviews,headRefOid,mergeCommit") {
             Ok(r) => poll_one(first.s("id"), first.s("pr"), &r.view, r.via()),

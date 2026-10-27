@@ -57,6 +57,12 @@ login is said: `Could not open the pull request`, with what az said and what to 
 - **Completed by you in Azure DevOps**: the task is merged without the board's own merge, and needs no clean checkout.
   **Abandoned** while its merge was awaited: it waits for you, as a closed pull request does on GitHub.
 - **Merged by the agent itself**: `Already merged in !1234`, done once the main pipeline of its merge commit passed.
+  Only a pull request whose last commit holds the work counts: one of the branch merged before the work was done is not
+  what brought it to main.
+- **Pushed to main by the agent itself**: `Already on main`, and not done yet either: the task waits for the main
+  pipeline of the commit that brought the work there (`On main: bdb73e8. Waiting for the main pipeline to start`): the
+  agent's own commit when it was pushed as it is, else the first commit of main's line that holds it; when main holds
+  its changes as another commit (cherry-picked, or squashed there while the branch keeps its own), main's tip.
 - **Feedback**: what you write on it (as the user `az` is logged in as) wakes the agent, as on GitHub. The board's own
   review comment is a thread closed at once, so it never holds up a policy of resolved comments.
 
@@ -142,7 +148,10 @@ compacted its conversation) leaves it where it was: never "stopped without a sum
 
 After the merge, the task stays at "merging" while the base branch's pipeline (`azure-pipelines.yml`, or whichever the
 repo has) runs for the merge commit, its row saying how far: `Main pipeline running · 2 of 3 stages`, or
-`Deploying staging` while a stage named `Deploy…` runs.
+`Deploying staging` while a stage named `Deploy…` runs. Only the runs of that very commit count: an older run of the same
+pipeline that passed already (of the commit before) is not the task's, and no run of the merge commit yet means waiting
+for it to start. With no run found, the pull request's merge commit is read again, in case Azure DevOps named another
+one at first. The task is done only once its run is through, its last stage too.
 
 - **Passed**: the task is done and cleaned up. A run that partly succeeded counts as passed, and says so.
 - **Failed or cancelled**: the task waits for you, with the run, the failing job and step and the end of its log.
@@ -151,7 +160,10 @@ repo has) runs for the merge commit, its row saying how far: `Main pipeline runn
   newest run of a pipeline counts).
 - **Held at an approval** in Azure DevOps (a deployment stage's environment check): the task waits for you,
   `Main pipeline reports waits for your approval of stage prodDE in Azure DevOps: <run>`, with no timeout; once
-  approved there it goes on by itself.
+  approved there it goes on by itself, through each stage's approval in turn (`Staging`, then `Production_DE`).
+- **An approval rejected** there (or one that ran out): the task waits for you, `Main pipeline stopped: The approval of
+  stage Production_DE was rejected or ran out in Azure DevOps (run 104499)`, with nothing for the agent to fix. Run the
+  stage again there and `retry` to wait for it again, or archive the task.
 - **Running**: once a job of it has an agent, waited for as long as it runs, never cut off.
 - **Not started after `merge.pipelineTimeout`** (60 minutes by default, counted from your last approval there), or
   queued all that time with no job on an agent: it waits for you with that reason.

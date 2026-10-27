@@ -3,6 +3,7 @@
 //! The flow at Azure DevOps is one file per area in azure_devops/ (crate::azure_devops::flow holds the world they share).
 mod approval;
 mod completion;
+mod deploy;
 mod draft;
 mod flow;
 mod gate;

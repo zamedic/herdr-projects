@@ -5,7 +5,10 @@
 //! it waits for you with the reason and the end of the failing job's log, `fix` sends that to the agent, whose next
 //! finish opens a new pull request; `retry` looks at the runs again. Not started (or queued, no job with an agent yet)
 //! after `merge.pipelineTimeout`: it waits for you. A run under way is waited for as long as it runs, and one held at
-//! an approval in Azure DevOps (its environment's check) waits for you as it is, with no timeout.
+//! an approval in Azure DevOps (its environment's check) waits for you as it is, with no timeout; one whose approval
+//! was rejected (or ran out) there waits for you with that. Work the agent pushed to the base branch itself (`Already
+//! on main`) waits for the run of the commit that brought it there the same way (`arm_direct`). Only the runs of that
+//! very commit count: no run for it yet is no run, whatever older run of the pipeline passed.
 use crate::azure::{self, runs};
 use crate::clock::now;
 use crate::flow::{git::drop_remote_branch, sidebar::tell_sidebar, spaces::tidy_mark};
@@ -31,8 +34,25 @@ pub fn arm(t: &mut Obj, commit: &str, base: &str, mode: &str, head: &str) {
     for k in ["autoMerge", "autoMergeLocal", "mergeFailed", "requireApproval"] { t.put(k, false); }
     t.put("prMerged", true); t.put("prState", "merged");
     t.put("pipelineWait", json!({ "commit": commit, "base": base, "since": now(), "mode": mode, "head": head }));
-    t.put("msg", format!("Merged: {}. Waiting for the main pipeline to start", t.s("pr")));
+    t.put("msg", format!("{}. Waiting for the main pipeline to start", landed(t)));
 }
+/// The agent pushed the task's work to `base` itself, `commit` bringing it there: it waits for that commit's runs as
+/// after a merge. Its pull request, if it had one, is left as it is: nothing merged it.
+pub fn arm_direct(t: &mut Obj, commit: &str, base: &str) {
+    let kept: Vec<(&str, Value)> = ["prMerged", "prState"].into_iter().map(|k| (k, t.at(k).clone())).collect();
+    arm(t, commit, base, "merged", "");
+    for (k, v) in kept { t.put(k, v); }
+    t.obj_mut("pipelineWait").put("direct", true);
+    t.put("msg", format!("{}. Waiting for the main pipeline to start", landed(t)));
+}
+/// What came onto the base branch, for the row: the pull request merged (`Merged: <its link>`), or the commit the agent
+/// pushed there itself (`On main: bdb73e8`).
+fn landed(t: &Obj) -> String {
+    let w = t.at("pipelineWait");
+    if w.b("direct") { format!("On {}: {}", w.s("base"), w.s("commit").chars().take(7).collect::<String>()) } else { format!("Merged: {}", t.s("pr")) }
+}
+/// The same in a word, before what the runs say (`Merged. Waiting for the pipeline Release to start`).
+fn landed_word(t: &Obj) -> String { let w = t.at("pipelineWait"); if w.b("direct") { format!("On {}", w.s("base")) } else { "Merged".into() } }
 /// The row's words. `held`: a run waits for your approval in Azure DevOps, so the task waits for you (state.rs).
 fn say_held(id: &str, msg: &str, held: bool) {
     let mark = if held { json!(msg) } else { Value::Null };
@@ -53,8 +73,8 @@ fn done(id: &str, words: &str) {
         let w = t.at("pipelineWait").clone();
         mode = if w.s("mode").is_empty() { "always".into() } else { w.t("mode") }; head = w.t("head");
         let m = tidy_mark(t, &mode, &head);
-        t.put("stage", "done"); t.put("tidy", m.unwrap_or(Value::Null)); t.put("pipelineWait", Value::Null);
-        t.put("msg", format!("Merged: {}. {words}", t.s("pr")));
+        let said = format!("{}. {words}", landed(t));
+        t.put("stage", "done"); t.put("tidy", m.unwrap_or(Value::Null)); t.put("pipelineWait", Value::Null); t.put("msg", said);
         Ok(Change::Write)
     }) else { return };
     if t.s("stage") != "done" { return; }
@@ -69,7 +89,7 @@ fn stopped(id: &str, title: &str, detail: &str, next: &str, agent: bool) {
         if !t.b("pipelineWait") { return Ok(Change::Keep); }
         let w = t.at("pipelineWait").clone();
         t.put("stage", "failed"); t.put("pipelineWait", Value::Null); t.put("msg", title);
-        t.put("pipelineFailed", json!({ "commit": w.at("commit"), "base": w.at("base"), "mode": w.at("mode"), "head": w.at("head"), "pr": t.at("pr") }));
+        t.put("pipelineFailed", json!({ "commit": w.at("commit"), "base": w.at("base"), "mode": w.at("mode"), "head": w.at("head"), "pr": t.at("pr"), "direct": w.b("direct") }));
         for (k, v) in failure_patch(&obj(json!({ "stage": "pipeline", "title": title, "detail": detail, "next": next, "agentCanFix": agent, "auth": is_auth_failure(detail) && !agent }))) { t.insert(k, v); }
         Ok(Change::Write)
     }) else { return };
@@ -91,9 +111,12 @@ pub fn look(id: &str) {
         Err(said) => {
             let why: String = said.lines().map(str::trim).find(|l| !l.is_empty()).unwrap_or("no answer").chars().take(160).collect();
             if overdue(&t) { return stopped(id, "Could not read the main pipeline", &format!("Merge commit: {commit} on {base}\n\naz pipelines runs list:\n{said}"), &format!("{} Then retry the task to look at its pipeline again.", azure::cli::LOGIN), false); }
-            return say(id, &format!("Merged. Waiting for the main pipeline · could not read its runs ({why})"));
+            return say(id, &format!("{}. Waiting for the main pipeline · could not read its runs ({why})", landed_word(&t)));
         }
     };
+    // No run of the commit: the pull request may have named it before Azure DevOps had made it. Read again, the next look
+    // goes by the commit it names now.
+    if all.is_empty() && recommit(id, &a, &root, &t, &commit) { return; }
     let wanted = runs::wanted(&all, &setting);
     let missing = runs::not_started(&all, &setting);
     let late = |what: &str| stopped(id, "The main pipeline did not finish", &format!("Merge commit: {commit} on {base}\nNot finished after {timeout} (merge.pipelineTimeout): {what}\n\nThe work is merged; the task is not done until its pipeline passed."),
@@ -106,22 +129,37 @@ pub fn look(id: &str) {
             // `all`, and no run: a repo with no pipeline, or none that runs for this commit (its triggers, its paths).
             if runs::any_pipeline(&a, &root) == Some(false) { return done(id, "No pipeline in this repo to wait for."); }
             if now() - w.i("since") >= START_GRACE_MS { return done(id, &format!("No pipeline ran for the merge commit on {base}.")); }
-            say(id, &format!("Merged: {}. Waiting for the main pipeline to start", t.s("pr")));
+            say(id, &format!("{}. Waiting for the main pipeline to start", landed(&t)));
         }
-        runs::Look::NotStarted(names) => { if overdue(&t) { return late(&format!("{} not started", names.join(", "))); } say(id, &format!("Merged. Waiting for the pipeline {} to start", names.join(", "))); }
+        runs::Look::NotStarted(names) => { if overdue(&t) { return late(&format!("{} not started", names.join(", "))); } say(id, &format!("{}. Waiting for the pipeline {} to start", landed_word(&t), names.join(", "))); }
         // A run under way is not cut off: a long build, or one that sat at an approval, is still running. One still
         // queued (no job has had an agent yet) is, past `merge.pipelineTimeout`.
         runs::Look::Running { words, started } => { if !started && overdue(&t) { return late(&format!("{words}, no job started")); } say(id, &words); }
         // Waiting for a person is not the pipeline taking too long: no timeout while it is so.
         runs::Look::Approval(words) => say_held(id, &words, true),
+        // Said no to there: not the agent's to fix, nor the machine's to wait for.
+        runs::Look::Refused { why, detail } => stopped(id, &format!("Main pipeline stopped: {why}"), &format!("{detail}\n\nCommit: {commit} on {base}. The work is on {base}; the task is not done until its pipeline passed."),
+            "If it should go out after all, run the stage again in Azure DevOps and approve it there, then retry the task to wait for it again. If it should not, archive the task.", false),
     }
+}
+/// The merge commit its pull request names now, when that is another than the one waited for: kept, and true.
+fn recommit(id: &str, a: &azure::Azure, root: &std::path::Path, t: &Task, commit: &str) -> bool {
+    if t.at("pipelineWait").b("direct") || !azure::pr::is_azure(t.s("pr")) { return false; }
+    let Ok(v) = azure::pr::view(a, root, t.s("pr"), "state") else { return false };
+    let now_at = v.at("mergeCommit").t("oid");
+    if v.s("state") != "MERGED" || now_at.is_empty() || now_at.eq_ignore_ascii_case(commit) { return false; }
+    update_wait(id, 10000, |t| {
+        if !t.b("pipelineWait") { return Ok(Change::Keep); }
+        t.obj_mut("pipelineWait").put("commit", now_at.as_str()); t.put("mergeCommit", now_at.as_str());
+        Ok(Change::Write)
+    }).is_ok()
 }
 /// `retry` on a task whose pipeline failed or did not finish: it waits for (and looks at) the runs again.
 pub fn rearm(id: &str) -> crate::err::Res<Task> {
     let t = update_wait(id, 10000, |t| {
         let f = t.at("pipelineFailed").clone();
         if !f.is_object() { crate::fail!("{} has no pipeline to look at again.", t.s("id")); }
-        arm(t, f.s("commit"), f.s("base"), f.s("mode"), f.s("head"));
+        if f.b("direct") { arm_direct(t, f.s("commit"), f.s("base")); } else { arm(t, f.s("commit"), f.s("base"), f.s("mode"), f.s("head")); }
         Ok(Change::Write)
     })?;
     look(id);

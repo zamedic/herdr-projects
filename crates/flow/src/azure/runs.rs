@@ -1,7 +1,9 @@
 //! The base branch's pipeline runs for a merge commit on Azure Pipelines (`az pipelines runs list`), the ones
 //! `merge.pipeline` names, and what they say together: still to start, running (how far: `Main pipeline running · 2 of
 //! 3 stages`, `Deploying staging`), held at an approval for you (`Main pipeline reports waits for your approval of stage
-//! prodDE in Azure DevOps: <run>`), passed, or failed with the failing job's name and the end of its log.
+//! prodDE in Azure DevOps: <run>`), passed, failed with the failing job's name and the end of its log, or stopped at
+//! an approval that was rejected (or ran out) there. Only the runs of the commit itself count, never an older run of
+//! the same pipeline.
 use super::cli::json_of;
 use super::logs::{tail, timeline};
 use super::url::Azure;
@@ -72,6 +74,15 @@ pub fn stages_of(recs: &[super::logs::Record]) -> Vec<Stage> {
         held: held.contains(&r.id), skipped: r.result == "skipped", name: r.name.clone() }).collect()
 }
 pub fn stages(a: &Azure, root: &Path, run: &str) -> Vec<Stage> { stages_of(&timeline(a, root, run)) }
+/// The stages of a run whose approval was refused: rejected there, or it ran out before anyone gave it.
+pub fn refused_of(recs: &[super::logs::Record]) -> Vec<String> {
+    let mut out: Vec<String> = vec![];
+    for r in recs.iter().filter(|r| r.kind == "Checkpoint.Approval" && r.state == "completed" && !["", "succeeded", "succeededWithIssues", "skipped"].contains(&r.result.as_str())) {
+        let at = stage_of(recs, r);
+        if let Some(s) = recs.iter().find(|x| x.id == at) { if !out.contains(&s.name) { out.push(s.name.clone()); } }
+    }
+    out
+}
 /// The stages of a run held at an approval: they wait for a person, not for the machine.
 pub fn approvals_of(recs: &[super::logs::Record]) -> Vec<String> { stages_of(recs).into_iter().filter(|s| s.held).map(|s| s.name).collect() }
 /// One run held so, in words: `Pipeline reports waits for your approval of stage Staging in Azure DevOps: <its URL>`.
@@ -119,11 +130,16 @@ pub fn progress(stages: &[Stage], runs: usize) -> String {
 /// What the runs say together.
 /// `Running`: runs not through; `started`: a job of one of them has picked up an agent, so it is under way (never cut off,
 /// however long it takes), else it is queued (an agent may never come: `merge.pipelineTimeout` holds); `Approval`: running, and held at an approval:
-/// in words, what waits for you.
-pub enum Look { Passed(String), Running { words: String, started: bool }, Approval(String), Failed { why: String, detail: String }, NotStarted(Vec<String>) }
+/// in words, what waits for you; `Refused`: a stage's approval was rejected or ran out, nothing for the agent to fix.
+pub enum Look { Passed(String), Running { words: String, started: bool }, Approval(String), Failed { why: String, detail: String }, Refused { why: String, detail: String }, NotStarted(Vec<String>) }
 /// `runs`: those of the commit `merge.pipeline` waits for (`wanted`), `missing`: those it names not run yet.
 pub fn look(a: &Azure, root: &Path, runs: &[Run], missing: &[String]) -> Look {
     if let Some(r) = runs.iter().find(|r| failed(r)) {
+        let refused = refused_of(&timeline(a, root, &r.id));
+        if !refused.is_empty() {
+            let why = format!("The approval of stage{} {} was rejected or ran out in Azure DevOps (run {})", if refused.len() > 1 { "s" } else { "" }, refused.join(", "), r.id);
+            return Look::Refused { detail: format!("{why}: {}", a.build_url(&r.id)), why };
+        }
         let why = format!("The pipeline {} {} (run {})", r.pipeline, if r.result == "canceled" { "was cancelled" } else { "failed" }, r.id);
         return Look::Failed { detail: format!("{why}: {}\n\n{}", a.build_url(&r.id), tail(a, root, &r.id)), why };
     }
