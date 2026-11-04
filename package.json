@@ -10,6 +10,7 @@
     "dev": "vite --config web/vite.config.ts",
     "build": "vite build --config web/vite.config.ts",
     "test": "bun test service core web",
+    "check": "sh scripts/check.sh",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

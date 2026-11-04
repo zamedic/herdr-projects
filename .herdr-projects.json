@@ -1,0 +1,1 @@
+{ "check": { "command": "npm run check -- --all", "again": "npm run check -- --all" } }

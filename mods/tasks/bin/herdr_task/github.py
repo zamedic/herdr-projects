@@ -1,9 +1,11 @@
-"""GitHub and merging: pull requests, checks, and finishing a merged task."""
+"""GitHub and merging: pull requests, checks, and finishing a merged task. A repo at Azure DevOps
+goes the same way through azure.py (its pull request read in gh's shape) and azure_flow.py."""
 
 import json
 import os
 import shutil
 
+from . import azure
 from .base import Fail, GH, git, now, run, STORE
 from .agents import agent_running, live_agents
 
@@ -21,8 +23,14 @@ def gh(*args, cwd=None):
 
 def github(s):
     """The repo on GitHub ("owner/name") when it has a GitHub remote and gh works there; asked
-    again after an hour. None: tasks merge locally."""
-    if s.loc["kind"] != "repo" or not shutil.which(GH):
+    again after an hour. A repo at Azure DevOps: its {org, project, repo} (azure.py). None: tasks
+    merge locally."""
+    if s.loc["kind"] != "repo":
+        return None
+    a = azure.of_folder(s.loc["folder"])
+    if a:
+        return a
+    if not shutil.which(GH):
         return None
     g = s.data.get("github") or {}
     if g and now() - g.get("at", 0) < 3600000:
@@ -45,6 +53,9 @@ def pr_open(s, task, repo, summary=None):
     ok, _, err = git(wt, "push", "--force-with-lease", "-u", remote_of(s.loc["folder"]), br)
     if not ok:
         raise Fail(f"Couldn't push {br}: {err}")
+    if isinstance(repo, dict):
+        from .azure_flow import pr_open as azure_open
+        return azure_open(s, task, repo, summary)
     pr = task.get("pr") or {}
     if pr.get("number"):
         ok, out, _ = gh("pr", "view", str(pr["number"]), "--repo", repo, "--json", "state", "-q", ".state")
@@ -94,6 +105,8 @@ PENDING = {"QUEUED", "IN_PROGRESS", "PENDING", "WAITING", "REQUESTED", "EXPECTED
 
 def pr_view(task):
     pr = task["pr"]
+    if azure.is_azure(pr):
+        return azure.view(pr)
     ok, out, _ = gh("pr", "view", str(pr["number"]), "--repo", pr["repo"], "--json", "state,mergeable,headRefOid,statusCheckRollup,mergeCommit")
     try:
         return json.loads(out) if ok else None
@@ -112,7 +125,7 @@ def pr_problem(v):
            if (c.get("conclusion") or c.get("state") or "").upper() in BAD]
     if bad:
         return "Checks failing: " + ", ".join(bad[:3]) + (" and more." if len(bad) > 3 else ".")
-    return None
+    return v.get("problem")  # Azure DevOps: a reviewer who rejected it or waits for the author
 
 
 def pr_pending(v):
@@ -140,8 +153,8 @@ MAIN_WATCH_MS = 3 * 3600000  # how long main is watched after a task merges thro
 def watch_main(s, task, sha=None):
     """A task just merged through its pull request: its base branch on GitHub is watched for a few
     hours (ghnews.main_pass), so the Assistant hears once if it goes red (as Shepherdr)."""
-    if not task.get("pr"):
-        return
+    if not task.get("pr") or azure.is_azure(task["pr"]):
+        return  # Azure DevOps: its main pipeline is a gate before done instead (azure_flow.gate)
     base = task.get("base") or "main"
     w = s.data.setdefault("main_watch", {}).setdefault(base, {})
     w.update(repo=task["pr"]["repo"], until=now() + MAIN_WATCH_MS, space=task.get("space") or w.get("space"))

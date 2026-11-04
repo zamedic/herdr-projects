@@ -85,9 +85,12 @@ export function place(list, task, { live = [], loaded = true, now = Date.now() }
   // Back at work after it said ready: no Accept until it says ready again.
   else if (busyAgain(task, live, now)) { section = "working"; why = WORKING_AGAIN; }
   else if (st === "ready") {
-    section = (task.merge_requested && live.length) || (task.auto_merge && task.pr && !task.merged) ? "merging" : "ready";
-    // As herdr-task's: a pull request that merges by itself once GitHub's checks pass.
-    if (section === "merging" && !(task.merge_requested && live.length)) why = "Merges once its checks pass";
+    section = (task.merge_requested && live.length) || (task.auto_merge && (task.pr || task.pipeline_wait) && !task.merged) ? "merging" : "ready";
+    // As herdr-task's: a pull request that merges by itself once GitHub's checks pass; on Azure
+    // DevOps, herdr-task's own words (its policies, the main pipeline after the merge).
+    if (section === "merging" && !(task.merge_requested && live.length)) why = task.merging_why ?? "Merges once its checks pass";
+    // Its pull request's pipeline waits at a stage's approval in Azure DevOps: the person's.
+    else if (section === "ready" && task.azure_hold) need("attention", task.azure_hold);
   }
   // Its agents' terminals aren't known yet (the machine is loading): no verdict yet.
   else if (states.some((x) => x !== "idle" && x !== "done") || (!live.length && !loaded)) section = "working";

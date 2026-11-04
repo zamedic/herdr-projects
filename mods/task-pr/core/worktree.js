@@ -127,6 +127,6 @@ export function markOf(xy) {
 export function prOf(d) {
   const state = d.state === "MERGED" ? "merged" : d.state === "CLOSED" ? "closed" : d.isDraft ? "draft" : "open";
   const checks = (d.statusCheckRollup ?? []).map(checkOf).sort((a, b) => CHECK_ORDER[a.state] - CHECK_ORDER[b.state] || a.name.localeCompare(b.name));
-  return { number: d.number, title: d.title, url: d.url, state, head: d.headRefName, base: d.baseRefName,
+  return { number: d.number, numbered: d.numbered ?? `#${d.number}`, host: d.host ?? "github", title: d.title, url: d.url, state, head: d.headRefName, base: d.baseRefName,
     add: d.additions ?? 0, del: d.deletions ?? 0, files: d.changedFiles ?? 0, checks };
 }

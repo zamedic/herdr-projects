@@ -2,6 +2,7 @@
 
 import json
 
+from .azure import numbered
 from .base import now
 from .agents import (
     agent_running, ask_reason, held_ask, last_words, own_line, status_word, STATUSES, task_status,
@@ -86,7 +87,7 @@ def line(v):
     word = v.get("status_text") or v["state"]
     extra = v.get("why") or ""
     if v["status"] in ("ready", "merging") and not extra:
-        extra = f"PR #{v['pr']['number']}" if v.get("pr") else v.get("branch") or ""
+        extra = f"PR {numbered(v['pr'])}" if v.get("pr") else v.get("branch") or ""
     elif v["status"] == "queued":
         wait = [f"{v['prefix']}-{i}" for i in v.get("waiting_for") or []] + (v.get("waiting_ext") or [])
         extra = v.get("reason") or ("after " + ", ".join(wait) if wait else "")

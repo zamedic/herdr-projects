@@ -1,5 +1,5 @@
 // A task's Pull request: its PR on GitHub (state, checks, a link), as gh tells it, asked on the
-// task's machine. The PR herdr-task opened (the task's record), else the one for its branch.
+// task's machine; one on Azure DevOps as herdr-task tells it (herdr-task pr-view, through az). The PR herdr-task opened (the task's record), else the one for its branch.
 // Read only. A child of the Tasks panel's task view (taskwhere.js); it asks GitHub only while it
 // shows: on showing, then every 30 s. Shepherdr's PrView, the Herdr way.
 import { View, div, svg } from "gpui-kit";
@@ -15,7 +15,9 @@ const EVERY = 30000;
 async function ask(w) {
   const on = w.machine ?? undefined;
   let r;
-  if (w.pr?.number && w.pr?.repo) {
+  if (w.pr?.host === "azure") {
+    r = await exec("herdr-task", ["pr-view", w.ref, "--folder", w.folder, "--json"], { on });
+  } else if (w.pr?.number && w.pr?.repo) {
     r = await exec("gh", ["pr", "view", String(w.pr.number), "--repo", w.pr.repo, "--json", PR_FIELDS], { on });
   } else if (w.branch) {
     r = await exec("gh", ["pr", "view", w.branch, "--json", PR_FIELDS], { cwd: w.folder, on }).catch(() => null);
@@ -26,7 +28,7 @@ async function ask(w) {
   if (r.code !== 0) {
     const err = (r.stderr || r.stdout || "").trim();
     if (!w.pr && /no pull requests? found|not a git repository|none of the git remotes|no git remotes/i.test(err)) return { why: "This task has no pull request." };
-    return { error: err.split("\n")[0] || "GitHub didn't answer." };
+    return { error: err.split("\n")[0] || `${w.pr?.host === "azure" ? "Azure DevOps" : "GitHub"} didn't answer.` };
   }
   return { pr: prOf(JSON.parse(r.stdout)) };
 }
@@ -83,8 +85,8 @@ export default class PullRequest extends View {
     const res = this.key === JSON.stringify(where()) ? this.res : null;
     const root = v_flex().id("task-pr").size_full().min_h(0).overflow_hidden().bg(t.background).text_color(t.foreground).text_size(13);
     if (!where()) return root.child(this.note("No task open.", t));
-    if (!res) return root.child(this.note("Asking GitHub…", t));
-    if (!res.pr) return root.child(this.note(res.why ?? `GitHub didn't answer: ${res.error}`, t, Boolean(res.error)));
+    if (!res) return root.child(this.note(where()?.pr?.host === "azure" ? "Asking Azure DevOps…" : "Asking GitHub…", t));
+    if (!res.pr) return root.child(this.note(res.why ?? `${where()?.pr?.host === "azure" ? "Azure DevOps" : "GitHub"} didn't answer: ${res.error}`, t, Boolean(res.error)));
     const pr = res.pr;
     // A state is a soft tint with its word in the colour (red is for what needs you, so Closed is grey).
     const tone = { open: ["Open", t.ansi2], draft: ["Draft", t.muted], merged: ["Merged", t.ansi5], closed: ["Closed", t.muted] }[pr.state];
@@ -94,7 +96,7 @@ export default class PullRequest extends View {
       // The bar the other views have: its state and number, the size of the change.
       .child(h_flex().h(34).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border).text_size(12)
         .child(div().h(20).px(8).flex().flex_none().items_center().rounded(10).bg(tone[1] + "24").text_color(tone[1]).font_medium().child(tone[0]))
-        .child(div().flex_none().text_color(t.muted).child(`#${pr.number}`))
+        .child(div().flex_none().text_color(t.muted).child(pr.numbered))
         .child(div().flex_1())
         .child(div().flex_none().text_color(t.dim).child(`${pr.files} ${pr.files === 1 ? "file" : "files"}`))
         .when(pr.add > 0, (e) => e.child(div().flex_none().text_color(t.ansi2).child(`+${pr.add.toLocaleString()}`)))
@@ -106,7 +108,7 @@ export default class PullRequest extends View {
             .child(svg("mods/workspace-chrome/git-branch.svg").size(12).flex_none())
             .child(div().min_w(0).truncate().child(`${pr.head} → ${pr.base}`)))
           .child(h_flex().gap(6).pt(4)
-            .child(this.button("task-pr-open", "mods/chat-image/external-link.svg", "Open on GitHub", t, (cx) => cx.open_url(pr.url)))
+            .child(this.button("task-pr-open", "mods/chat-image/external-link.svg", pr.host === "azure" ? "Open in Azure DevOps" : "Open on GitHub", t, (cx) => cx.open_url(pr.url)))
             .child(this.button("task-pr-copy", "mods/chat-image/copy.svg", this.copied === pr.url ? "Copied" : "Copy link", t, (cx) => {
               cx.write_to_clipboard(pr.url);
               this.copied = pr.url;

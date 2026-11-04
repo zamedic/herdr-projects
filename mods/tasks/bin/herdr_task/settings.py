@@ -23,6 +23,9 @@ OLD_INSTRUCTIONS = os.path.join(HOME, ".herdr", "instructions")
 ASSISTANT_TEMPLATES = ("assistant", "coordinator")  # "coordinator": Assistants started before the rename
 DEFAULTS = {"tasks": {"merge": "ask", "review_rounds": 0, "must_fix": "major", "max_running": MAX_RUNNING, "worktrees": True,
                       "start_notes": "", "finish_notes": "", "archive_after": 7, "proof": True, "base": ""},
+            # Azure DevOps (azure_flow.options): how a pull request there completes, and which main pipeline runs
+            # a merged task waits for before it is done.
+            "azure": {"method": "squash", "pipeline": "all", "pipeline_timeout": 60, "complete_timeout": 30},
             "automations": {"enabled": True}, "worker": {}, "reviewer": {}, "coordinator": {}, "backup": {}}
 LEVELS = ["blocker", "major", "minor"]
 

@@ -11,7 +11,13 @@ before it:
   provider     Provider errors: a turn the model's provider cut off, and whether to retry it.
   sessions     Agent sessions: the Claude Code or Codex session a task's agent runs, so it can
                resume.
+  azure        Azure DevOps: its repo from the origin's URL, the az program, a pull request read in
+               gh's shape (its policies as checks, who still has to vote), votes, completion.
+  azure_pipeline  Azure Pipelines: a build's timeline and failed log, stage approvals, the pull
+               request's own pipeline and the base branch's runs for a merge commit.
   github       GitHub and merging: pull requests, checks, and finishing a merged task.
+  azure_flow   Azure DevOps merging: the vote and completion at the reviewed commit, an accepted
+               completion watched, the main pipeline's gate before done.
   launch       Starting agents: their argv, labels, brief, tab and coordinator.
   takeover     The backup agent: a task whose CLI can't go on is taken over, once, by the other
                CLI; and which CLIs each machine has installed and signed in.

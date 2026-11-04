@@ -6,3 +6,6 @@ jsconfig.json
 node_modules/
 web/dist/
 web/generated/
+
+# The fork: the old Rust build folder, still on disk in older checkouts
+/target/

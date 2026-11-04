@@ -13,6 +13,7 @@ from .settings import machine_name, worker_argv
 from .agents import agent_log, agent_running, busy_again, detail, held_ask, live_agents, status_word, task_status
 from .provider import NUDGE, provider_cut, provider_error, PROVIDER_WAITS
 from .sessions import refresh_sessions, session_of
+from . import azure, azure_flow
 from .github import finish, merged_here, pr_pending, pr_problem, pr_view, watch_main
 from .launch import default_space
 from .store import locate, read_list, Store, store_files
@@ -28,8 +29,11 @@ from .scheduler import SCHEDULER
 
 
 def facts(s, t, report):
-    """A worktree task merged anywhere is done; a pull request's problems need the person."""
-    if t.get("pr"):
+    """A worktree task merged anywhere is done; a pull request's problems need the person. On
+    Azure DevOps: azure_flow.facts (and the main pipeline's gate before done)."""
+    if azure.is_azure(t.get("pr")):
+        azure_flow.facts(s, t, report)
+    elif t.get("pr"):
         pr = t["pr"]
         if now() - pr.get("checked", 0) < PR_EVERY:
             return
@@ -56,7 +60,12 @@ def facts(s, t, report):
                 report["attention"].append(t["id"])
             elif t.get("attention", "").startswith(("Checks failing", "It conflicts", "The pull request was closed", MERGE_FAILED)):
                 t.pop("attention")
+    elif t.get("pipeline_wait"):
+        if t["state"] == "ready":
+            azure_flow.gate(s, t, report)
     elif merged_here(s, t):
+        if azure_flow.direct(s, t, report):
+            return
         t["merged"] = True
         finish(s, t)
         report["done"].append(t["id"])
@@ -86,7 +95,8 @@ def tick_store(s, report):
                 except Exception as e:  # never stops the tick
                     report.setdefault("github_error", []).append(f"{s.ref(t)}: {e}")
             if t["state"] == "ready" and t.get("auto_merge") and t.get("pr") and not t.get("attention") and t.get("_pr_fresh"):
-                if not merge_now(s, t):
+                # Merged on Azure DevOps, it may still wait for its main pipeline: done only then.
+                if not merge_now(s, t) and not t.get("pipeline_wait"):
                     report["done"].append(t["id"])
             t.pop("_pr_fresh", None)
     queued = sorted((t for t in s.data["tasks"] if t["state"] == "queued"), key=lambda t: t.get("queued_at") or 0)
