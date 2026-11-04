@@ -1,7 +1,8 @@
-# The map of which file holds what: made in your own folder (herdr-projects docs), never committed.
-docs/where-things-live.md
+lib/.last/
+__pycache__/
+*.pyc
+gpui-kit.d.ts
+jsconfig.json
+
+# The fork: the old Rust build folder, still on disk in older checkouts
 /target/
-/examples/
-# The program bin/run.sh downloads for this platform, with its version and its download lock.
-/bin/herdr-projects-*
-/bin/.herdr-projects-*
