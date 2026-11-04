@@ -76,8 +76,11 @@ def task_status(task, live):
     if st == "ready":
         if task.get("merge_requested") and live:
             return "merging", None, None
-        if task.get("auto_merge") and task.get("pr") and not task.get("merged"):
-            return "merging", None, "Merges once its checks pass"
+        if task.get("auto_merge") and (task.get("pr") or task.get("pipeline_wait")) and not task.get("merged"):
+            return "merging", None, task.get("merging_why") or "Merges once its checks pass"
+        if task.get("azure_hold"):
+            # Its pull request's pipeline waits at a stage's approval in Azure DevOps (azure_flow.facts).
+            return "needs", "attention", task["azure_hold"]
         return "ready", None, None
     # An agent that hasn't reported yet is starting: working.
     if any(x not in ("idle", "done", "blocked") for x in states):

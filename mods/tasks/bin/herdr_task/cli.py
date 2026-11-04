@@ -11,6 +11,7 @@ import sys
 from .base import bundle, Fail, guard, run, STORE, sync_held, VERSION
 from .agents import LINE_MAX, SUMMARY_MAX
 from .launch import cmd_allow, name_tabs
+from .azure_flow import cmd_pr_view
 from .commands import (
     cmd_accept, cmd_add, cmd_alert, cmd_config, cmd_edit, cmd_fix, cmd_list, cmd_merge, cmd_ready,
     cmd_resume, cmd_review, cmd_review_more, cmd_reviewed, cmd_rm, cmd_show, cmd_start, cmd_state, cmd_status,
@@ -341,6 +342,7 @@ def main():
     agent_opts(c)
     c.add_argument("--space")
     c.add_argument("--reason", help="what to fix (default: what Herdr found)")
+    cmd("pr-view", cmd_pr_view, "its pull request as gh pr view --json gives it (Azure DevOps' too)")
     c = cmd("merge", cmd_merge, "ask the task's agent to merge it (the Merge button)")
     agent_opts(c)
     c.add_argument("--space")

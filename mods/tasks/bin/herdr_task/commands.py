@@ -17,6 +17,7 @@ from .settings import (
 )
 from .agents import agent_running, detail, fit, LINE_MAX, live_agents, STATUSES, SUMMARY_MAX
 from .sessions import refresh_sessions
+from . import azure, azure_flow
 from .github import finish, gh, github, merged_here, pr_open, pr_pending, pr_problem, pr_view, update_main, watch_main
 from .launch import (
     base_ref, brief, caller_labels, caller_space, current_base, default_space, folder_for, handoff, launch, name_tabs,
@@ -182,7 +183,12 @@ def cmd_show(args):
     if v.get("agents_md"):
         text.append(f"for AGENTS.md: {v['agents_md']}")
     if v.get("pr"):
-        text.append(f"pull request: #{v['pr']['number']} {v['pr']['url']}")
+        text.append(f"pull request: {azure.numbered(v['pr'])} {v['pr']['url']}")
+    if v.get("azure_summary"):
+        text.append(f"in Azure DevOps: {v['azure_summary']}")
+    for k, label in (("pr_pipeline", "its pipeline"), ("pipeline_wait", "main pipeline")):
+        if isinstance(v.get(k), dict) and (v[k].get("words") or v[k].get("commit")):
+            text.append(f"{label}: " + (v[k].get("words") or f"{v[k]['commit'][:7]} on {v[k].get('base')}"))
     if v.get("why") and v["status"] == "needs":
         text.append(f"needs the person: {v['why']}")
     if v.get("proof"):
@@ -517,6 +523,7 @@ def finalize(s, t):
     t["state"], t["ready_at"] = "ready", now()
     for k in ("attention", "merge_requested", "review"):
         t.pop(k, None)
+    azure_flow.reset(t)
     s.dirty = True
     wt = t.get("worktree")
     msg = f"{s.ref(t)} is ready."
@@ -529,7 +536,7 @@ def finalize(s, t):
         try:
             pr = pr_open(s, t, repo, t.get("summary"))
             pr["checked"] = 0
-            msg = f"{s.ref(t)} is ready: pull request #{pr['number']}, {pr['url']}."
+            msg = f"{s.ref(t)} is ready: pull request {azure.numbered(pr)}, {pr['url']}."
         except Fail as e:
             t["attention"] = str(e)
             return f"{s.ref(t)} is ready, but: {e} Tell the person."
@@ -539,7 +546,7 @@ def finalize(s, t):
         if t.get("pr"):
             if policy == "auto":
                 err = merge_now(s, t)
-                return msg + (f" Merging it waits: {err}" if err else " Merged; done.")
+                return msg + (f" Merging it waits: {err}" if err else landed_words(t))
             return msg + " It merges by itself once its checks pass."
         try:
             sent, started = tell(s, t, local_merge_msg(s, t), None)
@@ -787,9 +794,16 @@ def local_merge_msg(s, t):
             f"5. Run: herdr-task done {s.ref(t)} --folder {q(main)}")
 
 
+def landed_words(t):
+    """After a merge: done, or (Azure DevOps) waiting for the main pipeline of its merge commit."""
+    return " Merged; done once its main pipeline passes." if t.get("pipeline_wait") else " Merged; done."
+
+
 def merge_now(s, t):
     """Merges the task's pull request on GitHub (squash) and tidies up here. Returns why it
-    couldn't, or None when it's merged (and the task done)."""
+    couldn't, or None when it's merged (and the task done). On Azure DevOps: azure_flow.merge_now."""
+    if azure.is_azure(t.get("pr")):
+        return azure_flow.merge_now(s, t)
     n, repo = str(t["pr"]["number"]), t["pr"]["repo"]
     v = pr_view(t)
     s.dirty = True
@@ -835,7 +849,7 @@ def cmd_merge(args):
     if error:
         say(args, {**v, "error": error}, None) if args.json else print(f"herdr-task: {error}", file=sys.stderr)
         sys.exit(1)
-    text = f"{s.ref(t)}: pull request #{t['pr']['number']} merged; done." if how == "github" else \
+    text = f"{s.ref(t)}: pull request {azure.numbered(t['pr'])} merged;{landed_words(t)[8:]}" if how == "github" else \
         f"{s.ref(t)}: merge asked of {sent}" + (" (a new agent)" if started else "")
     say(args, {**v, "terminal": sent, "new_agent": started, "merged": how == "github"}, text)
 
@@ -903,7 +917,7 @@ def cmd_accept(args):
         sys.exit(1)
     text = {"done": f"{s.ref(t)} accepted: done.",
             "merged": f"{s.ref(t)} accepted: merged into {t.get('base') or 'main'}; done.",
-            "github": f"{s.ref(t)} accepted: pull request #{(t.get('pr') or {}).get('number')} merged; done.",
+            "github": f"{s.ref(t)} accepted: pull request {azure.numbered(t.get('pr'))} merged;{landed_words(t)[8:]}",
             "checks": f"{s.ref(t)} accepted: it merges once its checks pass.",
             "agent": f"{s.ref(t)} accepted: merge asked of {sent}" + (" (a new agent)" if started else "")}[how]
     say(args, {**v, "accepted": how, "terminal": sent, "new_agent": started}, text)

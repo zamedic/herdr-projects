@@ -15,6 +15,9 @@ How to run, build and lay out the code: [docs/develop.md](docs/develop.md).
   (`.github/workflows/check.yml`). Merging waits for it. A failure's log is `gh run view <run> --log-failed`.
 - Still write tests with your change: the installer's in `test/test_install.py`, the repo's rules in
   `test/test_repo.py`, herdr-task's in `test/test_herdr_task.py`.
+- This fork's one check is `npm run check` (`scripts/check.sh`: the quick checks above and every test), which the work
+  board runs. Its Azure DevOps support ([docs/azure-devops.md](docs/azure-devops.md)) is tested in
+  `test/test_azure_devops.py`, with a fake az: keep GitHub's way as upstream's.
 
 ## Add-ons
 
