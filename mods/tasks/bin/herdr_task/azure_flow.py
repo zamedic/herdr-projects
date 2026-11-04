@@ -23,6 +23,7 @@ def options(s, t):
     complete_timeout (minutes)."""
     o = dict(DEFAULTS)
     o.update({k: v for k, v in (settings_for(s, t.get("space")).get("azure") or {}).items() if v not in (None, "")})
+    o["method"] = str(o["method"]).strip().lower()
     return o
 
 
@@ -119,6 +120,12 @@ def give(s, t, v, method):
     return vote
 
 
+def vote_note(t):
+    """Said after an Accept whose vote Azure DevOps refused: the merge went on, the vote didn't."""
+    v = t.get("azure_vote") or {}
+    return f" Azure DevOps did not take your vote ({v['said']})." if v.get("said") and not v.get("voted") else ""
+
+
 def approved_words(t, v):
     vote = t.get("azure_vote") or {}
     if not vote:
@@ -161,6 +168,9 @@ def merge_now(s, t):
     if v["state"] == "MERGED":
         return merged(s, t, v)  # completed in Azure DevOps already: merged work, whatever its head
     o = options(s, t)
+    if not az.strategy(o["method"]):
+        say_attention(s, t, f"Settings' azure.method is {o['method']!r}: it is squash, merge, rebase or rebase-merge. Fix it, then accept again.")
+        return t["attention"]
     reviewed = t.get("head")
     if reviewed and v["headRefOid"] and v["headRefOid"] != reviewed:
         say_attention(s, t, f"The pull request has commits that were not reviewed here (reviewed {reviewed[:7]}, on the pull "

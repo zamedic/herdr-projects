@@ -83,7 +83,8 @@ def tick_store(s, report):
                 except Exception as e:  # never stops the tick
                     report.setdefault("github_error", []).append(f"{s.ref(t)}: {e}")
             if t["state"] == "ready" and t.get("auto_merge") and t.get("pr") and not t.get("attention") and t.get("_pr_fresh"):
-                if not merge_now(s, t):
+                # Merged on Azure DevOps, it may still wait for its main pipeline: done only then.
+                if not merge_now(s, t) and not t.get("pipeline_wait"):
                     report["done"].append(t["id"])
             t.pop("_pr_fresh", None)
     queued = sorted((t for t in s.data["tasks"] if t["state"] == "queued"), key=lambda t: t.get("queued_at") or 0)

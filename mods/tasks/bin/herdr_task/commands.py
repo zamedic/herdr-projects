@@ -184,6 +184,8 @@ def cmd_show(args):
         text.append(f"for AGENTS.md: {v['agents_md']}")
     if v.get("pr"):
         text.append(f"pull request: {azure.numbered(v['pr'])} {v['pr']['url']}")
+    if (v.get("azure_vote") or {}).get("said") and not v["azure_vote"].get("voted"):
+        text.append(f"your vote in Azure DevOps: not taken ({v['azure_vote']['said']})")
     if v.get("azure_summary"):
         text.append(f"in Azure DevOps: {v['azure_summary']}")
     for k, label in (("pr_pipeline", "its pipeline"), ("pipeline_wait", "main pipeline")):
@@ -796,7 +798,7 @@ def local_merge_msg(s, t):
 
 def landed_words(t):
     """After a merge: done, or (Azure DevOps) waiting for the main pipeline of its merge commit."""
-    return " Merged; done once its main pipeline passes." if t.get("pipeline_wait") else " Merged; done."
+    return (" Merged; done once its main pipeline passes." if t.get("pipeline_wait") else " Merged; done.") + azure_flow.vote_note(t)
 
 
 def merge_now(s, t):
@@ -918,7 +920,7 @@ def cmd_accept(args):
     text = {"done": f"{s.ref(t)} accepted: done.",
             "merged": f"{s.ref(t)} accepted: merged into {t.get('base') or 'main'}; done.",
             "github": f"{s.ref(t)} accepted: pull request {azure.numbered(t.get('pr'))} merged;{landed_words(t)[8:]}",
-            "checks": f"{s.ref(t)} accepted: it merges once its checks pass.",
+            "checks": f"{s.ref(t)} accepted: it merges once its checks pass.{azure_flow.vote_note(t)}",
             "agent": f"{s.ref(t)} accepted: merge asked of {sent}" + (" (a new agent)" if started else "")}[how]
     say(args, {**v, "accepted": how, "terminal": sent, "new_agent": started}, text)
 

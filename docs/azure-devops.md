@@ -70,7 +70,8 @@ Accepting a Ready task (or a task that merges on its own, when it gets there):
    Azure DevOps' auto-complete completes whatever was pushed last, never only the reviewed commit. az can't set a
    rebase. Both are given once per Accept and reviewed commit (`azure_vote` on the task), and taken back
    (`--auto-complete false`, `--vote reset`) as soon as that Accept no longer stands: a push that wasn't reviewed here,
-   the task needing you, or no longer merging.
+   the task needing you, or no longer merging. A vote Azure DevOps refused (no permission) does not stop the merge
+   when the policies pass without it, but the Accept's answer and `herdr-task show` say so, with its words.
 4. Its policies still running, or people still to vote: it shows under **Merging** (`Waiting for Azure DevOps checks ·
    0 of 1 passed · Approved here and in Azure DevOps · waits for 1 more reviewer: Bob (policy: …)`) and merges by
    itself once they pass.
@@ -117,7 +118,7 @@ In `~/.herdr/shepherdr.json`, under `azure` (Everywhere's, a machine's or a spac
 
 | Key | Default | Means |
 |---|---|---|
-| `method` | `squash` | How the pull request completes: `squash`, `merge` (no fast-forward), `rebase`, `rebase-merge` |
+| `method` | `squash` | How the pull request completes: `squash`, `merge` (no fast-forward), `rebase`, `rebase-merge`. Any other word needs you at the Accept: it is never guessed |
 | `pipeline` | `all` | Which runs of the base branch a merged task waits for: `all`, `none` (done at the merge), or pipelines by name or id (`CI, deploy`) |
 | `pipeline_timeout` | `60` | Minutes a pipeline may take to start (or sit queued) before the task needs you |
 | `complete_timeout` | `30` | Minutes an accepted completion may take before the task needs you |

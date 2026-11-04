@@ -459,8 +459,12 @@ def comment(pr, body):
 
 # ---- the completion ---------------------------------------------------------------------------
 
+STRATEGIES = {"squash": "squash", "merge": "noFastForward", "rebase": "rebase", "rebase-merge": "rebaseMerge"}
+
+
 def strategy(method):
-    return {"merge": "noFastForward", "rebase": "rebase", "rebase-merge": "rebaseMerge"}.get(method, "squash")
+    """Settings' method as Azure DevOps names it; None for one it doesn't know (never a guess)."""
+    return STRATEGIES.get(str(method or "").strip().lower())
 
 
 def complete(pr, head, method, message):

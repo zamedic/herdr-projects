@@ -280,6 +280,32 @@ class Accept(Base):
         self.assertEqual(self.t["state"], "done")
         self.assertTrue(self.t["merged"])
 
+    def test_a_refused_vote_is_said_and_the_merge_goes_on(self):
+        self.write_settings({"pipeline": "none"})
+        real = self.az.__call__
+
+        def refuse(args, cwd=None):
+            if args[:3] == ["repos", "pr", "set-vote"]:
+                return False, "", "ERROR: TF401027: You need the Git 'PullRequestContribute' permission."
+            return real(args, cwd)
+        self.patch(azure, "az", refuse)
+        self.assertIsNone(self.accept())
+        self.assertEqual(self.t["state"], "done")
+        from herdr_task.commands import landed_words
+        self.assertIn("Azure DevOps did not take your vote (TF401027", landed_words(self.t))
+
+    def test_an_unknown_method_is_refused_not_guessed(self):
+        self.write_settings({"method": "Merge", "pipeline": "none"})
+        self.assertIsNone(self.accept())
+        self.assertEqual(self.az.bodies[0]["completionOptions"]["mergeStrategy"], "noFastForward")
+        self.setUp()
+        self.write_settings({"method": "fast-forward", "pipeline": "none"})
+        err = self.accept()
+        self.assertIn("azure.method is 'fast-forward'", err)
+        self.assertEqual(self.t["attention"], err)
+        self.assertFalse(self.az.bodies)
+        self.assertFalse(self.az.did("repos", "pr", "set-vote"))
+
     def test_auto_complete_only_where_a_push_cannot_slip_through(self):
         self.write_settings({"pipeline": "none"})
         self.az.policies[0]["status"] = "running"
