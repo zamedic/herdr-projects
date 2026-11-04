@@ -1,8 +1,7 @@
 {
-  "name": "herdr-projects",
-  "version": "1.2.26",
+  "name": "shepherdr",
   "private": true,
-  "description": "A work board for herdr. The program is Rust (Cargo.toml); this file only gives every agent the one command that runs the tests.",
+  "description": "Shepherdr, with Azure DevOps. Nothing to install: this file only gives every agent the one command that runs the checks (scripts/check.sh).",
   "license": "MIT",
   "scripts": {
     "test": "sh scripts/check.sh",
